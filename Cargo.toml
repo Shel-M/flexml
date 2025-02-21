@@ -1,5 +1,7 @@
 [package]
 name = "flexml_root"
+description = "Quickly and easily define namespaced XML serialization"
+license = "MIT"
 version = "0.1.0"
 edition = "2021"
 

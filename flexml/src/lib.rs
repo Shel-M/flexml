@@ -73,7 +73,7 @@
 //!             }],
 //!         },
 //!         attrib1: "Attribute_value".to_string(),
-//!         attrib2: "Attribute_value_2".to_string(),
+//!         attrib2: "Attribute_value_2",
 //!     };
 //!
 //!     assert_eq!(
@@ -107,7 +107,7 @@
 //!             .expect("failed to insert namespace");
 //!
 //!         let node = flexml::XMLNode::new("root")
-//!             .attribute("attrib1", format("{0}", self.attrib1))
+//!             .attribute("attrib1", format!("{0}", self.attrib1))
 //!             .attribute("attrib2", format!("{0}", self.attrib2))
 //!             .namespace("Namespace1")
 //!             .expect("Failed to set doc namespace")

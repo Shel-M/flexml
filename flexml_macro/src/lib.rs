@@ -157,7 +157,7 @@ impl XMLFieldAttributes {
                     let field_str = field_ident.to_string();
                     match id.as_str() {
                         "attribute" => ret.attribute_fields.push(quote! {
-                            .attribute(#field_str, &format!("{}", self.#field_ident))
+                            .attribute(#field_str, format!("{}", self.#field_ident))
                         }),
                         "node" => {
                             node.name = Some(field_ident.clone());

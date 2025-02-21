@@ -2,6 +2,8 @@
 name = "flexml"
 version = "0.1.0"
 edition = "2021"
+description = "Quickly and easily define namespaced XML serialization"
+license = "MIT"
 
 [features]
 macro = ["flexml_macro"]

@@ -28,13 +28,17 @@ impl XMLNode {
     }
 
     #[inline]
-    pub fn attribute(mut self, attribute_name: &'static str, attribute_value: &String) -> Self {
+    pub fn attribute<T: Display>(
+        mut self,
+        attribute_name: &'static str,
+        attribute_value: T,
+    ) -> Self {
         self.add_attribute(attribute_name, attribute_value);
         self
     }
 
     #[inline]
-    pub fn add_attribute(&mut self, attribute_name: &'static str, attribute_value: &String) {
+    pub fn add_attribute<T: Display>(&mut self, attribute_name: &'static str, attribute_value: T) {
         if self.attributes.contains_key(&attribute_name) {
             warn!(
                 "Duplicate attribute {attribute_name} added to {}. Overwriting.",

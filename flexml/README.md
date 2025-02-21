@@ -25,18 +25,23 @@ use flexml::macros::XMLNode;
 // The default will match the struct name, this tag overrides.
 #[name("foo")]
 
-// This stores available namespaces. When serializing, only used namespaces will be rendered into the final document.
-#[namespaces(("Namespace1", "https://namespace1.com/namespace"), ("Namespace2", "https://namespace2.com/namespace"))]
+// This stores available namespaces. When serializing, only used 
+// namespaces will be rendered into the final document.
+#[namespaces(("Namespace1", "https://namespace1.com/namespace"),
+    ("Namespace2", "https://namespace2.com/namespace"))]
 
 // This is how you tag a default namespace on a node.
 #[namespace("Namespace1")]
 struct Foo {
-    // Multiple nodes can be defined. They'll be serialized in the order they appear on the struct.
-    // A node tag on a Vec<Bar> (in this example) preserves the order of the Vec when serializing.
+    // Multiple nodes can be defined. They'll be serialized in the
+    // order they appear on the struct.
+    // A node tag on a Vec<Bar> (in this example) preserves the 
+    // order of the Vec when serializing.
     #[node]
     data1: Vec<Node>,
     #[node]
-    // A child-specific namespace - overrides a struct's default namespace.
+    // A child-specific namespace - overrides a struct's default
+    // namespace.
     #[namespace("Namespace1")]
     data2: Node,
 
@@ -50,9 +55,10 @@ struct Foo {
 
 #[derive(XMLNode)]
 struct Node {
-    // Nodes are inserted in-order, so you can accomplish mixed media
+    // Nodes are inserted in-order, so you can use mixed media.
 
-    // Note: A #[namespace] tag on a Text node like this one will panic at runtime.
+    // Note: A #[namespace] tag on a Text node like this one will 
+    // panic at runtime.
     #[node]
     data1: String,
     #[node]
@@ -101,12 +107,18 @@ struct Root {
 
 impl IntoXMLNode for Root {
     fn to_xml(&self) -> XMLNode {
-        XMLNamespaces::insert("Namespace1", "https://namespace1.com/namespace")
-            // This is why the macro can panic at runtime. The only time this should error is in the event of a RWLock poison error, which should be very rare.
+        XMLNamespaces::insert("Namespace1",
+            "https://namespace1.com/namespace")
+            // This is why the macro can panic at runtime. 
+            // The only time this should error is in the event of a 
+            // RWLock poison error, which should be very rare.
             .expect("failed to insert namespace");
-        XMLNamespaces::insert("Namespace2", "https://namespace2.com/namespace").expect("failed to insert namespace");
+        XMLNamespaces::insert("Namespace2",
+            "https://namespace2.com/namespace")
+            .expect("failed to insert namespace");
 
-        let data1_nodes: Vec<XMLNode> = self.data1.iter().map(|n| n.to_xml()).collect();
+        let data1_nodes: Vec<XMLNode> = self.data1.iter()
+            .map(|n| n.to_xml()).collect();
 
         let node = XMLNode::new("root")
             .attribute("attrib1", &self.attrib1)
@@ -134,7 +146,8 @@ impl IntoXMLNode for Node {
 
         let node = XMLNode::new("Node")
             .text(&self.data1)
-            // You can also use .data() and .datum() and convert the type with .into()
+            // You can also use .data() or .datum().
+            // Convert the type with .into().
             .data(
                 self.data2
                     .iter()

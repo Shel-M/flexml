@@ -12,7 +12,7 @@ Two reasons:
 If you'd like to change this, you're welcome to submit a pull request, and I am welcome to deny it if I don't like it.
 
 # Features
-`macros`: Enables the flexml::macros::XMLNode procedural macro to implement the [IntoXMLNode] traits.
+`macros`: Enables the flexml::macros::XMLNode procedural macro to implement the [IntoXMLNode] trait.
 
 # Examples
 Macro usage example

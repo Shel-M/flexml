@@ -97,7 +97,7 @@
 //!     attrib2: &'static str,
 //! }
 //!
-//! impl flexml::IntoXMLNode for Root {
+//! impl IntoXMLNode for Root {
 //!     fn to_xml(&self) -> flexml::XMLNode {
 //!         use flexml::ToXMLData;
 //!         flexml::XMLNamespaces::insert("Namespace1", "https://namespace1.com/namespace")
@@ -134,7 +134,7 @@
 //!     data2: Vec<Node>,
 //! }
 //!
-//! impl flexml::IntoXMLNode for Node {
+//! impl IntoXMLNode for Node {
 //!     fn to_xml(&self) -> flexml::XMLNode {
 //!         use flexml::ToXMLData;
 //!

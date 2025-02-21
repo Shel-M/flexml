@@ -2,6 +2,8 @@
 name = "flexml_macro"
 version = "0.1.0"
 edition = "2021"
+description = "Macro feature dependency for flexml"
+license = "MIT"
 
 [dependencies]
 syn = { version = "2.0.39", features = ["parsing", "derive"] }

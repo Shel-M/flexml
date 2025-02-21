@@ -9,7 +9,7 @@ Two reasons:
 - There's no deserializer implemented for flexml
 - Some of quick-xmls issues with supporting a few XML features are stated as not being particularly nice for the XML spec.
 
-If you'd like to change this, you're welcome to submit a pull request, and I am welcome to deny it.
+If you'd like to change this, you're welcome to submit a pull request, and I am welcome to deny it if I don't like it.
 
 # Features
 `macros`: Enables the flexml::macros::XMLNode procedural macro to implement the [IntoXMLNode] traits.

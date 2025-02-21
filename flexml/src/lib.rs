@@ -107,8 +107,8 @@
 //!             .expect("failed to insert namespace");
 //!
 //!         let node = flexml::XMLNode::new("root")
-//!             .attribute("attrib1", format!("{0}", self.attrib1))
-//!             .attribute("attrib2", format!("{0}", self.attrib2))
+//!             .attribute("attrib1", self.attrib1)
+//!             .attribute("attrib2", self.attrib2)
 //!             .namespace("Namespace1")
 //!             .expect("Failed to set doc namespace")
 //!             .data(

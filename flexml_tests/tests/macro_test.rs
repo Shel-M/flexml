@@ -16,7 +16,7 @@ fn test_build_simple_xml() {
 
         #[attribute]
         attrib1: String,
-        #[attribute]
+        #[attribute("UpperCamelCase")]
         attrib2: &'static str,
     }
 
@@ -45,7 +45,7 @@ fn test_build_simple_xml() {
     };
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

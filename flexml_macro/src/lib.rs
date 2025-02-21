@@ -1,5 +1,9 @@
 extern crate proc_macro;
 
+use heck::{
+    ToKebabCase, ToLowerCamelCase, ToShoutyKebabCase, ToShoutySnakeCase, ToSnakeCase, ToTrainCase,
+    ToUpperCamelCase,
+};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
@@ -156,9 +160,38 @@ impl XMLFieldAttributes {
                 if let Some(id) = id {
                     let field_str = field_ident.to_string();
                     match id.as_str() {
-                        "attribute" => ret.attribute_fields.push(quote! {
-                            .attribute(#field_str, format!("{}", self.#field_ident))
-                        }),
+                        "attribute" => {
+                            let field_str = match attr.parse_args::<LitStr>() {
+                                Ok(s) => match s.value().as_str() {
+                                    "KebabCase" | "kebab-kase" => field_str.to_kebab_case(),
+                                    "LowerCamelCase" | "lowerCamelCase" => {
+                                        field_str.to_lower_camel_case()
+                                    }
+                                    "ShoutyKebabCase" | "SHOUTY-KEBAB-CASE" => {
+                                        field_str.to_shouty_kebab_case()
+                                    }
+                                    // "snek" - What chicanery, what shenanigans - and dare I say it - what tomfoolery!
+                                    "ShoutySnakeCase" | "SHOUTY_SNAKE_CASE" | "ShoutySnekCase"
+                                    | "SHOUTY_SNEK_CASE" => field_str.to_shouty_snake_case(),
+                                    "SnakeCase" | "snake_case" | "SnekCase" | "snek_case" => {
+                                        field_str.to_snake_case()
+                                    }
+
+                                    "TitleCase" | "Title Case" => {
+                                        panic!("XML does not allow the 'Title Case' casing scheme.")
+                                    }
+                                    "TrainCase" | "Train-Case" => field_str.to_train_case(),
+                                    "UpperCamelCase" | "PascalCase" => {
+                                        field_str.to_upper_camel_case()
+                                    }
+                                    r => panic!("Unknown case '{r}'"),
+                                },
+                                Err(_) => field_str,
+                            };
+                            ret.attribute_fields.push(quote! {
+                                .attribute(#field_str, format!("{}", self.#field_ident))
+                            })
+                        }
                         "node" => {
                             node.name = Some(field_ident.clone());
                             if let Type::Path(path) = field.ty.clone() {

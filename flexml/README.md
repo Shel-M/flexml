@@ -45,11 +45,12 @@ struct Foo {
     #[namespace("Namespace1")]
     data2: Node,
 
-    // Attributes
-    #[attribute]
-    attrib1: String,
     // Display is used to convert attributes
     #[attribute]
+    attrib1: String,
+    // A case string may be passed into attributes. 
+    // See [heck] for supported casing schemes.
+    #[attribute("UpperCamelCase")]
     attrib2: &'static str,
 }
 
@@ -83,7 +84,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:foo attrib1="Attribute_value" attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
+        r#"<n:foo attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
         test_structure.to_xml().to_string()
     )
 }
@@ -122,7 +123,7 @@ impl IntoXMLNode for Root {
 
         let node = XMLNode::new("root")
             .attribute("attrib1", &self.attrib1)
-            .attribute("attrib2", &self.attrib2)
+            .attribute("Attrib2", &self.attrib2)
             .namespace("Namespace1").expect("Failed to set doc namespace")
             .nodes(&data1_nodes)
             .node(
@@ -177,12 +178,13 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }
 ```
 
- [quick-xml]: https://docs.rs/quick-xml/latest/quick_xml/
- [serde]: https://serde.rs/
+[quick-xml]: https://docs.rs/quick-xml/latest/quick_xml/
+[serde]: https://serde.rs/
+[heck]: https://docs.rs/heck/latest/heck/index.html
 

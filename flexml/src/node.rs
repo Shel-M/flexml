@@ -1,10 +1,8 @@
+use indexmap::IndexMap;
 use log::warn;
 
-use crate::{XMLError, XMLNamespace, XMLNamespaces};
+use crate::{XMLData, XMLError, XMLNamespace, XMLNamespaces};
 
-use super::XMLData;
-
-use std::collections::BTreeMap;
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
@@ -12,7 +10,7 @@ pub struct XMLNode {
     name: &'static str,
     namespace: Option<XMLNamespace>,
 
-    attributes: BTreeMap<&'static str, String>,
+    attributes: IndexMap<&'static str, String>,
     data: Vec<XMLData>,
 }
 
@@ -22,7 +20,7 @@ impl XMLNode {
             name,
             namespace: None,
 
-            attributes: BTreeMap::new(),
+            attributes: IndexMap::new(),
             data: Vec::new(),
         }
     }

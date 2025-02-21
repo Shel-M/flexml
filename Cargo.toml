@@ -1,9 +1,14 @@
 [package]
-name = "flexml"
-version = "0.1.0"
+name = "flexml_root"
+version = "0.0.0"
 edition = "2021"
 
-
 [dependencies]
-log = "0.4"
-once_cell = "1"
+flexml = { path = "./flexml", features = ["macro"]}
+
+[workspace]
+resolver = "2"
+members = [
+	"flexml",
+	"flexml_macro",
+]

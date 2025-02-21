@@ -45,13 +45,11 @@ impl XMLNamespaces {
         let namespaces = read_global()?;
 
         for (key_name, value_namespace) in namespaces.iter() {
-            println!("{key_name} ==? {namespace}");
             if key_name == namespace {
                 return Ok(Some(value_namespace.clone()));
             }
         }
 
-        //Ok(namespaces.get(namespace.as_str()).map(|n| (*n).clone()))
         return Ok(None);
     }
 

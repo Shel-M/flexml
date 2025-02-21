@@ -1,10 +1,10 @@
 [package]
 name = "flexml_root"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-flexml = { path = "./flexml", features = ["macro"]}
+[dev-dependencies]
+flexml = {  path = "./flexml", features = ["macro"]}
 
 [workspace]
 resolver = "2"

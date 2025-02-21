@@ -1,4 +1,4 @@
-//! XML writer (maybe it'll have read someday, but for now I recommend [quick-xml] for deserializing) library that should be quick and easy to implement, with ergonomics and flexibility as the core goal.
+//! An XML writer (maybe it'll have read someday, but for now I recommend [quick-xml] for deserializing) library that should be quick and easy to implement, with ergonomics and flexibility as the core goal.
 //!
 //! # Why make this when [quick-xml] exists?
 //! I personally don't like how quick-xml handles writing. It's very fast, stable, and well supported. It also isn't very easy to use to write, and its documentation for that use-case is generally lacking. It also [doesn't effectively support namespaces.](https://github.com/tafia/quick-xml/issues/218)

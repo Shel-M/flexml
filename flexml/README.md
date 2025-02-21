@@ -87,6 +87,9 @@ Which is equivalent to this non-macro implementation
 
 ```rust
 use flexml::IntoXMLNode;
+use flexml::XMLData;
+use flexml::XMLNode;
+use flexml::XMLNamespaces;
 
 struct Root {
     data1: Vec<Node>,
@@ -97,29 +100,22 @@ struct Root {
 }
 
 impl IntoXMLNode for Root {
-    fn to_xml(&self) -> flexml::XMLNode {
-        use flexml::ToXMLData;
-        flexml::XMLNamespaces::insert("Namespace1", "https://namespace1.com/namespace")
+    fn to_xml(&self) -> XMLNode {
+        XMLNamespaces::insert("Namespace1", "https://namespace1.com/namespace")
             // This is why the macro can panic at runtime. The only time this should error is in the event of a RWLock poison error, which should be very rare.
             .expect("failed to insert namespace");
-        flexml::XMLNamespaces::insert("Namespace2", "https://namespace2.com/namespace")
-            .expect("failed to insert namespace");
+        XMLNamespaces::insert("Namespace2", "https://namespace2.com/namespace").expect("failed to insert namespace");
 
-        let node = flexml::XMLNode::new("root")
+        let data1_nodes: Vec<XMLNode> = self.data1.iter().map(|n| n.to_xml()).collect();
+
+        let node = XMLNode::new("root")
             .attribute("attrib1", &self.attrib1)
             .attribute("attrib2", &self.attrib2)
-            .namespace("Namespace1")
-            .expect("Failed to set doc namespace")
-            .data(
-                self.data1
-                    .iter()
-                    .map(|d| flexml::XMLData::from(d.to_xml()))
-                    .collect::<Vec<flexml::XMLData>>()
-                    .as_slice(),
-            )
-            .datum(
+            .namespace("Namespace1").expect("Failed to set doc namespace")
+            .nodes(&data1_nodes)
+            .node(
                 self.data2
-                    .to_xml_data()
+                    .to_xml()
                     .namespace("Namespace1")
                     .expect("Failed to set node namespace"),
             );
@@ -134,16 +130,16 @@ struct Node {
 }
 
 impl IntoXMLNode for Node {
-    fn to_xml(&self) -> flexml::XMLNode {
-        use flexml::ToXMLData;
+    fn to_xml(&self) -> XMLNode {
 
-        let node = flexml::XMLNode::new("Node")
-            .datum(self.data1.to_xml_data())
+        let node = XMLNode::new("Node")
+            .text(&self.data1)
+            // You can also use .data() and .datum() and convert the type with .into()
             .data(
                 self.data2
                     .iter()
-                    .map(|d| flexml::XMLData::from(d.to_xml()))
-                    .collect::<Vec<flexml::XMLData>>()
+                    .map(|d| d.into())
+                    .collect::<Vec<XMLData>>()
                     .as_slice(),
             );
         node

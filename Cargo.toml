@@ -1,16 +1,3 @@
-# [package]
-# name = "flexml"
-# description = "Quickly and easily define namespaced XML serialization"
-# license = "MIT"
-# version = "0.1.0"
-# edition = "2021"
-#
-# [features]
-# macro = ["flexml_core/macro"]
-#
-# [dependencies]
-# flexml_core = { path = "./flexml_core"}
-
 [workspace]
 resolver = "2"
 members = [

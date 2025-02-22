@@ -1,8 +1,8 @@
+use flexml::macros::XMLNode;
+use flexml::IntoXMLNode;
+
 #[test]
 fn test_build_simple_xml() {
-    use flexml::macros::XMLNode;
-    use flexml::IntoXMLNode;
-
     #[derive(XMLNode)]
     #[name("root")]
     #[namespaces(("Namespace1", "https://namespace1.com/namespace"), ("Namespace2", "https://namespace2.com/namespace"))]
@@ -48,4 +48,20 @@ fn test_build_simple_xml() {
         r#"<n:root attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
+}
+
+#[test]
+fn test_build_unit_struct() {
+    #[derive(XMLNode)]
+    struct Root {
+        #[node]
+        data: Node,
+    }
+
+    #[derive(XMLNode)]
+    struct Node;
+
+    let test_struct = Root { data: Node {} };
+
+    assert_eq!("<Root><Node/></Root>", test_struct.to_xml().to_string());
 }

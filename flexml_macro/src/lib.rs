@@ -131,6 +131,7 @@ impl XMLFieldAttributes {
         let fields = if let syn::Data::Struct(data_struct) = &input.data {
             match &data_struct.fields {
                 syn::Fields::Named(fields_named) => &fields_named.named,
+                syn::Fields::Unit => &Punctuated::default(),
                 _ => panic!("XMLDoc can only be derived for structs with named fields"),
             }
         } else {
@@ -162,30 +163,7 @@ impl XMLFieldAttributes {
                     match id.as_str() {
                         "attribute" => {
                             let field_str = match attr.parse_args::<LitStr>() {
-                                Ok(s) => match s.value().as_str() {
-                                    "KebabCase" | "kebab-kase" => field_str.to_kebab_case(),
-                                    "LowerCamelCase" | "lowerCamelCase" => {
-                                        field_str.to_lower_camel_case()
-                                    }
-                                    "ShoutyKebabCase" | "SHOUTY-KEBAB-CASE" => {
-                                        field_str.to_shouty_kebab_case()
-                                    }
-                                    // "snek" - What chicanery, what shenanigans - and dare I say it - what tomfoolery!
-                                    "ShoutySnakeCase" | "SHOUTY_SNAKE_CASE" | "ShoutySnekCase"
-                                    | "SHOUTY_SNEK_CASE" => field_str.to_shouty_snake_case(),
-                                    "SnakeCase" | "snake_case" | "SnekCase" | "snek_case" => {
-                                        field_str.to_snake_case()
-                                    }
-
-                                    "TitleCase" | "Title Case" => {
-                                        panic!("XML does not allow the 'Title Case' casing scheme.")
-                                    }
-                                    "TrainCase" | "Train-Case" => field_str.to_train_case(),
-                                    "UpperCamelCase" | "PascalCase" => {
-                                        field_str.to_upper_camel_case()
-                                    }
-                                    r => panic!("Unknown case '{r}'"),
-                                },
+                                Ok(s) => conv_case(field_str, s.value()),
                                 Err(_) => field_str,
                             };
                             ret.attribute_fields.push(quote! {
@@ -260,5 +238,25 @@ fn type_is_vec(typepath: &TypePath) -> bool {
         last_seg.ident == "Vec"
     } else {
         false
+    }
+}
+
+fn conv_case(input: String, case: String) -> String {
+    match case.as_str() {
+        "KebabCase" | "kebab-kase" => input.to_kebab_case(),
+        "LowerCamelCase" | "lowerCamelCase" => input.to_lower_camel_case(),
+        "ShoutyKebabCase" | "SHOUTY-KEBAB-CASE" => input.to_shouty_kebab_case(),
+        // "snek" - What chicanery, what shenanigans - and dare I say it - what tomfoolery!
+        "ShoutySnakeCase" | "SHOUTY_SNAKE_CASE" | "ShoutySnekCase" | "SHOUTY_SNEK_CASE" => {
+            input.to_shouty_snake_case()
+        }
+        "SnakeCase" | "snake_case" | "SnekCase" | "snek_case" => input.to_snake_case(),
+
+        "TitleCase" | "Title Case" => {
+            panic!("XML does not allow the 'Title Case' casing scheme.")
+        }
+        "TrainCase" | "Train-Case" => input.to_train_case(),
+        "UpperCamelCase" | "PascalCase" => input.to_upper_camel_case(),
+        r => panic!("Unknown case '{r}'"),
     }
 }

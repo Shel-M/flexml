@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use log::warn;
 
-use crate::{XMLData, XMLError, XMLNamespace, XMLNamespaces};
+use crate::{ToXMLData, XMLData, XMLError, XMLNamespace, XMLNamespaces};
 
 use std::fmt::Display;
 
@@ -45,6 +45,17 @@ impl XMLNode {
         }
         self.attributes
             .insert(attribute_name, attribute_value.to_string());
+    }
+
+    #[inline]
+    pub fn name(mut self, name: &'static str) -> Self {
+        self.set_name(name);
+        self
+    }
+
+    #[inline]
+    pub fn set_name(&mut self, name: &'static str) {
+        self.name = name
     }
 
     #[inline]
@@ -127,13 +138,13 @@ impl XMLNode {
 
     #[inline]
     pub fn text(mut self, text: &String) -> Self {
-        self.add_datum(text.into());
+        self.add_datum(text.to_xml_data());
         self
     }
 
     #[inline]
     pub fn add_text(&mut self, text: &String) {
-        self.add_datum(text.into())
+        self.add_datum(text.to_xml_data())
     }
 
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

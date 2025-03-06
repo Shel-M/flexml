@@ -1,5 +1,5 @@
 use flexml::macros::XMLNode;
-use flexml::IntoXMLNode;
+use flexml::{IntoXMLNode, XMLData, XMLNode};
 
 #[test]
 fn test_build_simple_xml() {
@@ -24,8 +24,17 @@ fn test_build_simple_xml() {
     struct Node {
         #[node]
         data1: String,
-        #[node]
+        #[node(with = foo)]
         data2: Vec<Node>,
+    }
+
+    impl Node {
+        fn foo(&self) -> XMLData {
+            XMLNode::new("Node")
+                .text(&"foo ".to_string())
+                .text(&self.data1)
+                .into()
+        }
     }
 
     let test_structure = Root {

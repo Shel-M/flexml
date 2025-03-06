@@ -8,9 +8,9 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
-use syn::Type;
-use syn::{parenthesized, TypePath};
+use syn::{parenthesized, Expr, ExprAssign, PatPath, Path, PathSegment, TypePath};
 use syn::{parse_macro_input, DeriveInput, Ident, LitStr, Token};
+use syn::{DataStruct, Type};
 
 struct NamespaceTuple {
     ns: LitStr,
@@ -32,16 +32,31 @@ impl Parse for NamespaceTuple {
 pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    let xml_struct_attributes = XMLStructAttributes::process_struct_attributes(&input);
-    let xml_field_attributes = XMLFieldAttributes::process_field_attributes(&input);
+    let name = &input.ident;
 
-    let name = input.ident;
-    let ns_tokens = &xml_struct_attributes.namespaces_tokens;
-    let struct_tag = &xml_struct_attributes.name;
-    let node_ns_token = &xml_struct_attributes.namespace_tokens;
+    let xml_attributes = XMLAttributes::process_struct_attributes(&input);
 
-    let attr_tokens = &xml_field_attributes.attribute_fields;
-    let node_tokens = &xml_field_attributes.node_fields;
+    let ns_tokens = &xml_attributes.namespaces_tokens;
+    let node_tag = &xml_attributes.name;
+    let node_ns_token = &xml_attributes.namespace_tokens;
+
+    let mut attr_tokens = Vec::new();
+    let mut node_tokens = Vec::new();
+
+    match &input.data {
+        syn::Data::Struct(s) => {
+            let mut xml_struct_field_attributes =
+                XMLStructFieldAttributes::process_field_attributes(s);
+
+            attr_tokens.append(&mut xml_struct_field_attributes.attribute_fields);
+            node_tokens.append(&mut xml_struct_field_attributes.node_fields);
+        }
+        // syn::Data::Enum(e) => {
+        //     e.variants
+        //     todo!()
+        // }
+        _ => panic!("Not implemented"),
+    }
 
     let expanded = quote! {
         impl flexml::IntoXMLNode for #name {
@@ -51,7 +66,7 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                 #(#ns_tokens)*
 
                 // Create the XMLNode, adding attributes and child nodes.
-                let node = flexml::XMLNode::new(#struct_tag)
+                let node = flexml::XMLNode::new(#node_tag)
                     #(#attr_tokens)*
                     #node_ns_token
                     #(#node_tokens)*;
@@ -65,13 +80,13 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 }
 
 #[derive(Default)]
-struct XMLStructAttributes {
+struct XMLAttributes {
     name: String,
     namespace_tokens: TokenStream,
     namespaces_tokens: Vec<TokenStream>,
 }
 
-impl XMLStructAttributes {
+impl XMLAttributes {
     fn process_struct_attributes(input: &DeriveInput) -> Self {
         let mut ret = Self::default();
         let name = &input.ident;
@@ -118,25 +133,25 @@ impl XMLStructAttributes {
 }
 
 #[derive(Default)]
-struct XMLFieldAttributes {
+struct XMLStructFieldAttributes {
     attribute_fields: Vec<TokenStream>,
     node_fields: Vec<TokenStream>,
 }
 
-impl XMLFieldAttributes {
-    fn process_field_attributes(input: &DeriveInput) -> Self {
+impl XMLStructFieldAttributes {
+    fn process_field_attributes(data_struct: &DataStruct) -> Self {
         let mut ret = Self::default();
 
-        // Ensure that the input is a struct with named fields.
-        let fields = if let syn::Data::Struct(data_struct) = &input.data {
-            match &data_struct.fields {
-                syn::Fields::Named(fields_named) => &fields_named.named,
-                syn::Fields::Unit => &Punctuated::default(),
-                _ => panic!("XMLDoc can only be derived for structs with named fields"),
-            }
-        } else {
-            panic!("XMLDoc can only be derived for structs");
-        };
+        // // Ensure that the input is a struct with named fields.
+        // let fields = if let syn::Data::Struct(data_struct) = &input.data {
+        //     match &data_struct.fields {
+        //         syn::Fields::Named(fields_named) => &fields_named.named,
+        //         syn::Fields::Unit => &Punctuated::default(),
+        //         _ => panic!("XMLDoc can only be derived for structs with named fields"),
+        //     }
+        // } else {
+        //     panic!("XMLDoc can only be derived for structs");
+        // };
 
         // Prepare vectors for fields marked as attributes or nodes.
         let mut node_fields = Vec::new();
@@ -145,14 +160,16 @@ impl XMLFieldAttributes {
             name: Option<Ident>,
             ty: Option<TypePath>,
             namespace: Option<String>,
+            with: Option<Ident>,
         }
 
-        for field in fields.iter() {
+        for field in data_struct.fields.iter() {
             let field_ident = field.ident.as_ref().expect("Expected named field");
             let mut node: Node = Node {
                 name: None,
                 ty: None,
                 namespace: None,
+                with: None,
             };
 
             // Process the field’s attributes.
@@ -171,6 +188,10 @@ impl XMLFieldAttributes {
                             })
                         }
                         "node" => {
+                            if let Ok(s) = attr.parse_args() {
+                                node.with = Some(parse_with(s));
+                            };
+
                             node.name = Some(field_ident.clone());
                             if let Type::Path(path) = field.ty.clone() {
                                 node.ty = Some(path);
@@ -194,34 +215,36 @@ impl XMLFieldAttributes {
         }
 
         for node in node_fields {
+            let node_name = node.name.expect("Unnamed node");
+
             let namespace_stream = match node.namespace {
                 Some(ns) => quote! {
                     .namespace(#ns).expect("Failed to set node namespace")
                 },
                 None => quote! {},
             };
+            let cast_stream = if let Some(with) = &node.with {
+                quote! {#with()}
+            } else {
+                quote! {to_xml_data()}
+            };
 
-            let node_name = node.name.expect("Unnamed node");
-
-            let stream = match node.ty {
-                Some(ty) => {
-                    if type_is_vec(&ty) {
-                        quote! {
-                            .data(
-                                self.#node_name.iter()
-                                    .map(|d| flexml::XMLData::from(d.to_xml()#namespace_stream))
-                                    .collect::<Vec<flexml::XMLData>>().as_slice()
-                            )
-                        }
-                    } else {
-                        quote! {
-                            .datum(self.#node_name.to_xml_data()#namespace_stream)
-                        }
+            let stream = if let Some(ty) = node.ty {
+                if type_is_vec(&ty) {
+                    quote! {
+                        .data(
+                            self.#node_name.iter()
+                                .map(|d| d.#cast_stream #namespace_stream)
+                                .collect::<Vec<flexml::XMLData>>().as_slice()
+                        )
+                    }
+                } else {
+                    quote! {
+                        .datum(self.#node_name.#cast_stream #namespace_stream)
                     }
                 }
-                None => {
-                    panic!("Could not determine type of field {node_name}");
-                }
+            } else {
+                panic!("Could not determine type of field {node_name}");
             };
 
             ret.node_fields.push(stream);
@@ -259,4 +282,29 @@ fn conv_case(input: String, case: String) -> String {
         "UpperCamelCase" | "PascalCase" => input.to_upper_camel_case(),
         r => panic!("Unknown case '{r}'"),
     }
+}
+
+fn parse_with(expression: ExprAssign) -> Ident {
+    let ExprAssign { left, right, .. } = expression;
+
+    let left = match *left {
+        Expr::Path(l) => {
+            let path = l.path;
+            path.get_ident().expect("Path not 'Ident'").clone()
+        }
+        _ => panic!("Unknown left assignment value"),
+    };
+    let right = match *right {
+        Expr::Path(r) => {
+            let path = r.path;
+            path.get_ident().expect("Path not 'Ident'").clone()
+        }
+        _ => panic!("Unknown left assignment value"),
+    };
+
+    match left.to_string().as_str() {
+        "with" => return right,
+        _ => panic!("'with' expression not found."),
+    }
+    // panic!("{left:?} \n {right:?}");
 }

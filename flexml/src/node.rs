@@ -1,13 +1,14 @@
 use indexmap::IndexMap;
 use log::warn;
 
+use crate::conv_case;
 use crate::{ToXMLData, XMLData, XMLError, XMLNamespace, XMLNamespaces};
 
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct XMLNode {
-    name: &'static str,
+    name: String,
     namespace: Option<XMLNamespace>,
 
     attributes: IndexMap<&'static str, String>,
@@ -15,9 +16,9 @@ pub struct XMLNode {
 }
 
 impl XMLNode {
-    pub fn new(name: &'static str) -> Self {
+    pub fn new<T: Display>(name: T) -> Self {
         Self {
-            name,
+            name: name.to_string(),
             namespace: None,
 
             attributes: IndexMap::new(),
@@ -48,14 +49,23 @@ impl XMLNode {
     }
 
     #[inline]
-    pub fn name(mut self, name: &'static str) -> Self {
+    pub fn name<T: Display>(mut self, name: T) -> Self {
         self.set_name(name);
         self
     }
 
     #[inline]
-    pub fn set_name(&mut self, name: &'static str) {
-        self.name = name
+    pub fn set_name<T: Display>(&mut self, name: T) {
+        self.name = name.to_string()
+    }
+
+    pub fn case<T: Display>(mut self, case: T) -> Self {
+        self.set_case(case);
+        self
+    }
+
+    pub fn set_case<T: Display>(&mut self, case: T) {
+        self.name = conv_case(&self.name, case);
     }
 
     #[inline]

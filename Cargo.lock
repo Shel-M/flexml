@@ -10,9 +10,10 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "flexml"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "flexml_macro",
+ "heck",
  "indexmap",
  "log",
  "once_cell",
@@ -20,7 +21,7 @@ dependencies = [
 
 [[package]]
 name = "flexml_macro"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "heck",
  "proc-macro2",

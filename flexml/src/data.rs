@@ -39,12 +39,6 @@ impl Display for XMLData {
     }
 }
 
-impl From<&String> for XMLData {
-    fn from(value: &String) -> Self {
-        XMLData::Text(value.to_string())
-    }
-}
-
 impl From<XMLNode> for XMLData {
     fn from(value: XMLNode) -> Self {
         XMLData::Node(value)
@@ -59,6 +53,12 @@ impl<T: IntoXMLNode> From<&T> for XMLData {
 
 pub trait ToXMLData {
     fn to_xml_data(&self) -> XMLData;
+}
+
+impl<T: IntoXMLNode> ToXMLData for T {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Node(self.to_xml())
+    }
 }
 
 // Explicit implementations for built-in string types.
@@ -76,8 +76,68 @@ impl ToXMLData for String {
     }
 }
 
-impl<T: IntoXMLNode> ToXMLData for T {
+impl ToXMLData for &String {
     fn to_xml_data(&self) -> XMLData {
-        XMLData::Node(self.to_xml())
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for u8 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for u16 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for u32 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for u64 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for u128 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for i8 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for i16 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for i32 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for i64 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
+    }
+}
+
+impl ToXMLData for i128 {
+    fn to_xml_data(&self) -> XMLData {
+        XMLData::Text(self.to_string())
     }
 }

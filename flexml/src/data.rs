@@ -8,13 +8,15 @@ use std::fmt::Display;
 pub enum XMLData {
     Node(XMLNode),
     Text(String),
+    None,
 }
 
 impl XMLData {
     pub fn namespace(self, namespace: &'static str) -> Result<Self, XMLError> {
         match self {
-            XMLData::Node(node) => Ok(node.namespace(namespace)?.into()),
-            XMLData::Text(_) => Err(XMLError::NamespaceOnText),
+            Self::Node(node) => Ok(node.namespace(namespace)?.into()),
+            Self::Text(_) => Err(XMLError::NamespaceOnText),
+            Self::None => Ok(self),
         }
     }
 
@@ -22,6 +24,7 @@ impl XMLData {
         match self {
             Self::Text(s) => write!(f, "{s}"),
             Self::Node(node) => node.sub_fmt(f),
+            Self::None => Ok(()),
         }
     }
 }
@@ -31,6 +34,7 @@ impl Display for XMLData {
         match self {
             Self::Text(s) => write!(f, "{s}"),
             Self::Node(node) => node.fmt(f),
+            Self::None => Ok(()),
         }
     }
 }

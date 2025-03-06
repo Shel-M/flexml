@@ -71,9 +71,8 @@ impl XMLNode {
         }
 
         for datum in &self.data {
-            match datum {
-                XMLData::Node(node) => ret.append(&mut node.namespaces()),
-                XMLData::Text(_) => {}
+            if let XMLData::Node(node) = datum {
+                ret.append(&mut node.namespaces())
             }
         }
 

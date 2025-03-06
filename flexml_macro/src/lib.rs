@@ -8,7 +8,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
-use syn::{parenthesized, Expr, ExprAssign, PatPath, Path, PathSegment, TypePath};
+use syn::{parenthesized, Expr, ExprAssign, TypePath};
 use syn::{parse_macro_input, DeriveInput, Ident, LitStr, Token};
 use syn::{DataStruct, Type};
 
@@ -28,7 +28,10 @@ impl Parse for NamespaceTuple {
     }
 }
 
-#[proc_macro_derive(XMLNode, attributes(attribute, name, namespace, namespaces, node))]
+#[proc_macro_derive(
+    XMLNode,
+    attributes(attribute, case_as, name, namespace, namespaces, node)
+)]
 pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -51,10 +54,10 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
             attr_tokens.append(&mut xml_struct_field_attributes.attribute_fields);
             node_tokens.append(&mut xml_struct_field_attributes.node_fields);
         }
-        // syn::Data::Enum(e) => {
-        //     e.variants
-        //     todo!()
-        // }
+        syn::Data::Enum(e) => {
+            &e.variants;
+            panic!("{:?}", e.variants);
+        }
         _ => panic!("Not implemented"),
     }
 
@@ -171,21 +174,22 @@ impl XMLStructFieldAttributes {
                 namespace: None,
                 with: None,
             };
+            let mut attribute = false;
 
+            let mut field_str = field_ident.to_string();
             // Process the field’s attributes.
             for attr in field.attrs.iter() {
                 let id = attr.path().get_ident().map(|i| i.to_string());
                 if let Some(id) = id {
-                    let field_str = field_ident.to_string();
                     match id.as_str() {
-                        "attribute" => {
-                            let field_str = match attr.parse_args::<LitStr>() {
+                        "attribute" => attribute = true,
+                        "case_as" => {
+                            field_str = match attr.parse_args::<LitStr>() {
                                 Ok(s) => conv_case(field_str, s.value()),
-                                Err(_) => field_str,
+                                Err(_) => panic!(
+                                    "Could not parse attribute argument, expected string literal"
+                                ),
                             };
-                            ret.attribute_fields.push(quote! {
-                                .attribute(#field_str, format!("{}", self.#field_ident))
-                            })
                         }
                         "node" => {
                             if let Ok(s) = attr.parse_args() {
@@ -209,7 +213,11 @@ impl XMLStructFieldAttributes {
                 }
             }
 
-            if node.name.is_some() {
+            if attribute {
+                ret.attribute_fields.push(quote! {
+                    .attribute(#field_str, format!("{}", self.#field_ident))
+                })
+            } else if node.name.is_some() {
                 node_fields.push(node);
             }
         }

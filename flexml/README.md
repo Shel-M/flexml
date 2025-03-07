@@ -37,9 +37,7 @@ struct Foo {
     // order they appear on the struct.
     // A node tag on a Vec<Bar> (in this example) preserves the 
     // order of the Vec when serializing.
-    #[node]
     data1: Vec<Node>,
-    #[node]
     // A child-specific namespace - overrides a struct's default
     // namespace.
     #[namespace("Namespace1")]
@@ -52,6 +50,9 @@ struct Foo {
     // See [heck] for supported casing schemes.
     #[attribute("UpperCamelCase")]
     attrib2: &'static str,
+
+    #[unserialized]
+    unserialized_field: String,
 }
 
 #[derive(XMLNode)]
@@ -60,9 +61,7 @@ struct Node {
 
     // Note: A #[namespace] tag on a Text node like this one will 
     // panic at runtime.
-    #[node]
     data1: String,
-    #[node]
     data2: Vec<Node>,
 }
 
@@ -81,6 +80,7 @@ fn foo() {
         },
         attrib1: "Attribute_value".to_string(),
         attrib2: "Attribute_value_2",
+        unserialized_field: "Unserialized".to_string(),
     };
 
     assert_eq!(

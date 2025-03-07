@@ -1,6 +1,6 @@
 [package]
 name = "flexml_macro"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "Macro feature dependency for flexml"
 license = "MIT"

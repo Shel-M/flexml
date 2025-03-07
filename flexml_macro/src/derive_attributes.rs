@@ -2,33 +2,31 @@ use syn::{punctuated::Punctuated, Attribute, Ident, LitStr, Token};
 
 use crate::NamespaceTuple;
 
-#[derive(Debug)]
-pub(crate) enum DeriveAttributes {
-    Attribute,
-    Case(String),
-    Name(String),
-    Namespace(String),
-    Namespaces(Vec<NamespaceTuple>),
-    With(Ident),
-    Unserialized,
-    Untagged,
+#[derive(Debug, Default)]
+pub(crate) struct DeriveAttributes {
+    pub attribute: bool,
+    pub case: Option<String>,
+    pub name: Option<String>,
+    pub namespace: Option<String>,
+    pub namespaces: Vec<NamespaceTuple>,
+    pub with: Option<Ident>,
+    pub unserialized: bool,
+    pub untagged: bool,
 }
 
-impl DeriveAttributes {
-    pub(crate) fn from_vec(attrs: &[Attribute]) -> Vec<Self> {
-        let mut ret = Vec::new();
+impl From<&Vec<Attribute>> for DeriveAttributes {
+    fn from(attrs: &Vec<Attribute>) -> Self {
+        let mut ret = DeriveAttributes::default();
 
         for attr in attrs.iter() {
             let id = attr.path().get_ident().map(|i| i.to_string());
             if let Some(id) = id {
                 match id.as_str() {
-                    "attribute" => {
-                        ret.push(Self::Attribute);
-                    }
+                    "attribute" => ret.attribute = true,
                     "case" => {
                         match attr.parse_args::<LitStr>() {
                             Ok(s) => {
-                                ret.push(Self::Case(s.value()));
+                                ret.case = Some(s.value());
                             }
                             Err(_) => {
                                 panic!("Could not parse #[case] argument, expected string literal")
@@ -36,44 +34,37 @@ impl DeriveAttributes {
                         };
                     }
                     "name" => {
-                        let n: LitStr = attr
-                            .parse_args()
-                            .expect("Expected string literal in namespace attribute");
-                        ret.push(Self::Name(n.value()));
+                        ret.name = Some(
+                            attr.parse_args::<LitStr>()
+                                .expect("Expected string literal in namespace attribute")
+                                .value(),
+                        )
                     }
                     "namespace" => {
-                        // For the struct-level namespace, parse as a string literal.
-                        let ns: LitStr = attr
-                            .parse_args()
-                            .expect("Expected string literal in namespace attribute");
-                        ret.push(Self::Namespace(ns.value()));
+                        ret.namespace = Some(
+                            attr.parse_args::<LitStr>()
+                                .expect("Expected string literal in namespace attribute")
+                                .value(),
+                        )
                     }
                     "namespaces" => {
                         let namespaces: Punctuated<NamespaceTuple, Token![,]> = attr
                             .parse_args_with(Punctuated::parse_terminated)
                             .expect("Failed to parse namespaces attribute");
 
-                        let mut v = Vec::new();
-                        for namespace in namespaces {
-                            v.push(NamespaceTuple {
-                                ns: namespace.ns,
-                                uri: namespace.uri,
-                            });
-                        }
-
-                        ret.push(Self::Namespaces(v));
+                        ret.namespaces.extend(namespaces);
                     }
                     "with" => {
-                        let with: Ident = attr
-                            .parse_args()
-                            .expect("Expected identifier in with attribute");
-                        ret.push(Self::With(with))
+                        ret.with = Some(
+                            attr.parse_args::<Ident>()
+                                .expect("Expected identifier in with attribute"),
+                        )
                     }
                     "unserialized" => {
-                        ret.push(Self::Unserialized);
+                        ret.unserialized = true;
                         break; // Don't really need to continue processing in this case.
                     }
-                    "untagged" => ret.push(Self::Untagged),
+                    "untagged" => ret.untagged = true,
                     _ => {}
                 }
             }

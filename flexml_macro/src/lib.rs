@@ -19,10 +19,15 @@ use syn::{parse_macro_input, DeriveInput, Ident, LitStr, Token};
 use xml_enum::EnumVariant;
 use xml_struct::XMLStructFieldAttributes;
 
+// #[derive(Debug)]
+// struct NamespaceTuple {
+//     ns: LitStr,
+//     uri: LitStr,
+// }
+
 #[derive(Debug)]
-struct NamespaceTuple {
-    ns: LitStr,
-    uri: LitStr,
+enum NamespaceTuple {
+    Ns{ns: LitStr, uri: LitStr}
 }
 
 impl Parse for NamespaceTuple {
@@ -32,7 +37,7 @@ impl Parse for NamespaceTuple {
         let ns: LitStr = content.parse()?;
         let _comma: Token![,] = content.parse()?;
         let uri: LitStr = content.parse()?;
-        Ok(NamespaceTuple { ns, uri })
+        Ok(NamespaceTuple::Ns{ns, uri})
     }
 }
 
@@ -57,13 +62,17 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let xml_attributes = XMLAttributes::process_xml_attributes(&input);
 
     let ns_tokens = &xml_attributes.namespaces_tokens;
-    let node_tag = &xml_attributes.name;
-    let node_ns_token = &xml_attributes.namespace_tokens;
+    let node_tag = if xml_attributes.case.is_some() {
+        conv_case(&xml_attributes.name, xml_attributes.case.unwrap())
+    } else{
+        xml_attributes.name
+    };
+    let node_ns_token = &xml_attributes.namespace_token;
 
     let mut attr_tokens = Vec::new();
     let mut node_tokens = Vec::new();
 
-    proc_macro::TokenStream::from(match &input.data {
+    let expanded_body = match &input.data {
         syn::Data::Struct(s) => {
             let mut xml_field_attributes =
                 XMLStructFieldAttributes::process_field_attributes(s, &xml_attributes.with);
@@ -72,21 +81,15 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
             node_tokens.append(&mut xml_field_attributes.node_fields);
 
             quote! {
-                impl flexml::IntoXMLNode for #name {
-                    fn to_xml(&self) -> flexml::XMLNode {
-                        use flexml::ToXMLData;
-                        // Insert the provided namespaces.
-                        #(#ns_tokens)*
+                // Insert the provided namespaces.
+                #(#ns_tokens)*
 
-                        // Create the XMLNode, adding attributes and child nodes.
-                        let node = flexml::XMLNode::new(#node_tag)
-                            #(#attr_tokens)*
-                            #node_ns_token
-                            #(#node_tokens)*;
-                        node
-                    }
-
-                }
+                // Create the XMLNode, adding attributes and child nodes.
+                let node = flexml::XMLNode::new(#node_tag)
+                    #(#attr_tokens)*
+                    #node_ns_token
+                    #(#node_tokens)*;
+                node
             }
         }
         syn::Data::Enum(e) => {
@@ -95,48 +98,53 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
             panic!("{:?}", xml_enum_variants);
         }
         _ => panic!("Not implemented"),
+    };
+    proc_macro::TokenStream::from(quote! {
+        impl flexml::IntoXMLNode for #name {
+            fn to_xml(&self) -> flexml::XMLNode {
+                use flexml::ToXMLData;
+                #expanded_body
+            }
+        }
     })
 }
 
 #[derive(Default)]
 struct XMLAttributes {
+    case: Option<String>,
     name: String,
-    namespace_tokens: TokenStream,
+    namespace_token: TokenStream,
     namespaces_tokens: Vec<TokenStream>,
     with: Option<Ident>,
 }
 
 impl XMLAttributes {
     fn process_xml_attributes(input: &DeriveInput) -> Self {
-        let mut ret = Self {
-            name: input.ident.to_string(),
-            ..Default::default()
-        };
+        let mut xml_attributes = Self::from(DeriveAttributes::from(&input.attrs));
+        xml_attributes.name = input.ident.to_string();
+        xml_attributes
+    }
+}
 
-        let attrs = DeriveAttributes::from_vec(&input.attrs);
-
-        for attr in attrs {
-            match attr {
-                DeriveAttributes::Name(name) => ret.name = name,
-                DeriveAttributes::Namespace(namespace) => {
-                    ret.namespace_tokens = quote! {
-                        .namespace(#namespace).expect("Failed to set namespace")
-                    }
+impl From<DeriveAttributes> for XMLAttributes {
+    fn from(value: DeriveAttributes) -> Self {
+        Self {
+            case: value.case,
+            name: String::new(),
+            namespace_token: value.namespace.map_or(quote! {}, |namespace| {
+                quote! {
+                    .namespace(#namespace).expect("Failed to set namespace")
                 }
-                DeriveAttributes::Namespaces(namespaces) => {
-                    for namespace_tup in namespaces {
-                        let (ns, uri) = (&namespace_tup.ns, &namespace_tup.uri);
-                        ret.namespaces_tokens.push(quote! {
-                        flexml::XMLNamespaces::insert(#ns, #uri).expect("failed to insert namespace");
-                    })
-                    }
-                }
-                DeriveAttributes::With(with) => ret.with = Some(with.clone()),
-                _ => {}
-            }
+            }),
+            namespaces_tokens: value.namespaces.iter().map(|ns_tuple| {
+                let NamespaceTuple::Ns{ns, uri} = ns_tuple;
+                quote! {
+                flexml::XMLNamespaces::insert(#ns, #uri).expect("failed to insert namespace");
+            }}).collect()
+            
+            ,
+            with: value.with,
         }
-
-        ret
     }
 }
 

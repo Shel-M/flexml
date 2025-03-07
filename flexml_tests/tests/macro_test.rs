@@ -4,7 +4,8 @@ use flexml::{IntoXMLNode, ToXMLData, XMLData, XMLNode};
 #[test]
 fn test_struct_xml() {
     #[derive(XMLNode)]
-    #[name("root")]
+    // #[name("root")]
+    #[case("lowerCamelCase")]
     #[namespaces(("Namespace1", "https://namespace1.com/namespace"), ("Namespace2", "https://namespace2.com/namespace"))]
     #[namespace("Namespace1")]
     struct Root {
@@ -112,12 +113,12 @@ impl IntoXMLNode for NodeOptions {
     fn to_xml(&self) -> XMLNode {
         match self {
             Self::TaggedNode(n) => XMLNode::new("TaggedNode").datum(n.to_xml_data()),
-            NodeOptions::UntaggedNode(n) => n.to_xml(),
-            NodeOptions::Primitive(n) => XMLNode::new("Primitive").datum(n.to_xml_data()),
-            NodeOptions::NamedNode { tag } => {
+            Self::UntaggedNode(n) => n.to_xml(),
+            Self::Primitive(n) => XMLNode::new("Primitive").datum(n.to_xml_data()),
+            Self::NamedNode { tag } => {
                 XMLNode::new("NamedNode").datum(XMLNode::new("Tag").datum(tag.to_xml_data()).into())
             }
-            NodeOptions::NamedPrimitive { tag } => XMLNode::new("NamedPrimitive")
+            Self::NamedPrimitive { tag } => XMLNode::new("NamedPrimitive")
                 .datum(XMLNode::new("tag").datum(tag.to_xml_data()).into()),
         }
     }

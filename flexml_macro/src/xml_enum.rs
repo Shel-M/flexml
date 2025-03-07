@@ -1,10 +1,14 @@
-use syn::{DataEnum, Ident, LitStr};
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::{DataEnum, Ident};
 
-#[derive(Debug, Default)]
+use crate::{conv_case, DeriveAttributes};
+
+#[derive(Debug)]
 pub(crate) struct EnumVariant {
-    name: Option<Ident>,
+    alias: String,
     case: Option<String>,
-    // ty: Option<TypePath>,
+    name: String,
     namespace: Option<String>,
     tagging: EnumTagging,
     with: Option<Ident>,
@@ -18,49 +22,39 @@ enum EnumTagging {
 }
 
 impl EnumVariant {
-    pub(crate) fn process_fields(data_enum: &DataEnum, with: &Option<Ident>) -> Vec<Self> {
+    pub(crate) fn process_fields(data_enum: &DataEnum, with: &Option<Ident>) -> Vec<TokenStream> {
         let mut variants = Vec::new();
 
-        for variant in &data_enum.variants {
-            let mut enum_var = EnumVariant {
-                name: Some(variant.ident.clone()),
-                case: None,
-                // ty: None,
-                namespace: None,
-                tagging: EnumTagging::Default,
-                with: with.clone(),
-            };
-
-            for attr in variant.attrs.iter() {
-                let id = attr.path().get_ident();
-                if let Some(id) = id {
-                    match id.to_string().as_str() {
-                        "case" => {
-                            match attr.parse_args::<LitStr>() {
-                                Ok(s) => {
-                                    // handling for nodes
-                                    enum_var.case = Some(s.value());
-                                }
-                                Err(_) => panic!(
-                                    "Could not parse attribute argument, expected string literal"
-                                ),
-                            };
-                        }
-                        "untagged" => enum_var.tagging = EnumTagging::Untagged,
-                        "with" => {
-                            let with: Ident = attr
-                                .parse_args()
-                                .expect("Expected identifier in with attribute");
-                            enum_var.with = Some(with)
-                        }
-                        _ => {}
-                    }
-                }
+        for xml_variant in &data_enum.variants {
+            let mut variant = EnumVariant::from(DeriveAttributes::from(&xml_variant.attrs));
+            variant.name = xml_variant.ident.to_string();
+            if variant.with.is_none() {
+                variant.with = with.clone()
             }
 
-            variants.push(enum_var);
+            for field in &xml_variant.fields {
+                DeriveAttributes::from(&field.attrs);
+            }
+
+            variants.push(variant);
         }
 
-        variants
+        todo!()
+    }
+}
+
+impl From<DeriveAttributes> for EnumVariant {
+    fn from(value: DeriveAttributes) -> Self {
+        Self {
+            alias: value.name.unwrap_or(String::new()),
+            case: value.case,
+            name: String::new(),
+            namespace: value.namespace,
+            tagging: match value.untagged {
+                true => EnumTagging::Untagged,
+                false => EnumTagging::Default,
+            },
+            with: value.with,
+        }
     }
 }

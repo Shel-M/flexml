@@ -20,6 +20,14 @@ impl XMLData {
         }
     }
 
+    pub fn case<T: Display>(self, case: T) -> Result<Self, XMLError> {
+        match self {
+            Self::Node(node) => Ok(node.case(case).into()),
+            Self::Text(_) => Err(XMLError::NamespaceOnText),
+            Self::None => Ok(self),
+        }
+    }
+
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Text(s) => write!(f, "{s}"),

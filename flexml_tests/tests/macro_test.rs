@@ -1,9 +1,9 @@
-use flexml::macros::XMLNode;
-use flexml::{IntoXMLNode, ToXMLData, XMLData, XMLNode};
+use flexml::macros::ToXML;
+use flexml::{IntoXML, XML};
 
 #[test]
-fn test_struct_xml() {
-    #[derive(XMLNode)]
+fn test_complex_struct() {
+    #[derive(ToXML)]
     // #[name("root")] // To manually name
     #[case("lowerCamelCase")] // To just change the rendered case scheme
     #[namespaces(("Namespace1", "https://namespace1.com/namespace"), ("Namespace2", "https://namespace2.com/namespace"))]
@@ -15,6 +15,7 @@ fn test_struct_xml() {
         data2: Node,
 
         #[attribute]
+        #[name("Attrib1")]
         attrib1: String,
         #[attribute]
         #[case("UpperCamelCase")]
@@ -24,7 +25,7 @@ fn test_struct_xml() {
         unserialized_member: String,
     }
 
-    #[derive(XMLNode)]
+    #[derive(ToXML)]
     struct Node {
         data1: String,
         #[with(prepend_foo)]
@@ -32,18 +33,17 @@ fn test_struct_xml() {
     }
 
     impl Node {
-        fn prepend_foo(&self) -> XMLData {
-            XMLNode::new("Node")
+        fn prepend_foo(&self) -> XML {
+            XML::new("Node")
                 .text(&"foo ".to_string())
                 .text(&self.data1)
                 .data(
                     self.data2
                         .iter()
-                        .map(|d| d.to_xml_data())
-                        .collect::<Vec<flexml::XMLData>>()
+                        .map(|d| d.to_xml())
+                        .collect::<Vec<flexml::XML>>()
                         .as_slice(),
                 )
-                .into()
         }
     }
 
@@ -67,19 +67,19 @@ fn test_struct_xml() {
     print!("{}", test_structure.unserialized_member);
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><node>First node, first datapoint</node><n:Node>String mixed with <Node>foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root Attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><node>First node, first datapoint</node><n:Node>String mixed with <Node>foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }
 
 #[test]
 fn test_unit_struct() {
-    #[derive(XMLNode)]
+    #[derive(ToXML)]
     struct Root {
         data: Node,
     }
 
-    #[derive(XMLNode)]
+    #[derive(ToXML)]
     struct Node;
 
     let test_struct = Root { data: Node {} };
@@ -87,62 +87,57 @@ fn test_unit_struct() {
     assert_eq!("<Root><Node/></Root>", test_struct.to_xml().to_string());
 }
 
-// Enum Tests
-#[derive(XMLNode)]
+// Tagged Enum Tests
+#[derive(ToXML)]
 struct Root {
-    data: NodeOptions,
+    data: NestedEnum,
 }
 
-#[derive(XMLNode)]
+#[derive(ToXML)]
 #[namespaces(("options_namespace", "https://options_namespace.com/namespace"))]
-enum NodeOptions {
+#[untagged]
+enum NestedEnum {
+    TaggedOptions(TaggedOptions),
+    UntaggedOptions(UntaggedOptions),
+}
+
+#[derive(ToXML)]
+enum TaggedOptions {
     OneNamespacedSub(#[namespace("options_namespace")] NodeA, NodeB),
     TaggedNode(NodeA),
     Primitive(u16),
-    // NamedNode {
-    //     #[case("PascalCase")]
-    //     tag: NodeA,http
-    // },
-    // NamedPrimitive {
-    //     tag: u16,
-    // },
-    // NamespacedNode(NodeA),
+    NamedNode {
+        #[case("PascalCase")]
+        tag: NodeA,
+    },
+    NamedPrimitive {
+        tag: u16,
+    },
+    #[case_all("PascalCase")]
+    TwoNamed {
+        tag_a: NodeA,
+        tag_b: u16,
+    },
+    #[namespace("options_namespace")]
+    NamespacedNode(NodeA),
 }
 
-// impl IntoXMLNode for NodeOptions {
-//     fn to_xml(&self) -> XMLNode {
-//         match self {
-//             Self::TaggedNode(n) => XMLNode::new("TaggedNode").datum(n.to_xml_data()),
-//             // Self::UntaggedNode(n) => n.to_xml(),
-//             Self::Primitive(n) => XMLNode::new("Primitive").datum(n.to_xml_data()),
-//             // Self::NamedNode { tag } => {
-//             //     XMLNode::new("NamedNode").datum(XMLNode::new("Tag").datum(tag.to_xml_data()).into())
-//             // }
-//             // Self::NamedPrimitive { tag } => XMLNode::new("NamedPrimitive")
-//             //     .datum(XMLNode::new("tag").datum(tag.to_xml_data()).into()),
-//             Self::OneNamespacedSub(n0, n1) => XMLNode::new("OneNamespacedSub")
-//                 .datum(n0.to_xml_data().namespace("namespace").expect(""))
-//                 .datum(n1.to_xml_data()),
-//         }
-//     }
-// }
-
-#[derive(XMLNode)]
+#[derive(ToXML)]
 struct NodeA {
     data: String,
 }
 
-#[derive(XMLNode)]
+#[derive(ToXML)]
 struct NodeB {
     data: u64,
 }
 
 #[test]
-fn test_tagged_enum() {
+fn test_enum_tagged() {
     let test_struct = Root {
-        data: NodeOptions::TaggedNode(NodeA {
+        data: NestedEnum::TaggedOptions(TaggedOptions::TaggedNode(NodeA {
             data: "String".to_string(),
-        }),
+        })),
     };
     assert_eq!(
         "<Root><TaggedNode><NodeA>String</NodeA></TaggedNode></Root>",
@@ -151,9 +146,9 @@ fn test_tagged_enum() {
 }
 
 #[test]
-fn test_primitive_enum() {
+fn test_enum_primitive() {
     let test_struct = Root {
-        data: NodeOptions::Primitive(16),
+        data: NestedEnum::TaggedOptions(TaggedOptions::Primitive(16)),
     };
     assert_eq!(
         "<Root><Primitive>16</Primitive></Root>",
@@ -161,41 +156,57 @@ fn test_primitive_enum() {
     );
 }
 
-// #[test]
-// fn test_named_node_enum() {
-//     let test_struct = Root {
-//         data: NodeOptions::NamedNode {
-//             tag: NodeA {
-//                 data: "String".to_string(),
-//             },
-//         },
-//     };
-//     assert_eq!(
-//         "<Root><NamedNode><Tag><NodeA>String</NodeA></Tag></NamedNode></Root>",
-//         test_struct.to_xml().to_string()
-//     );
-// }
-//
-// #[test]
-// fn test_named_primitive_enum() {
-//     let test_struct = Root {
-//         data: NodeOptions::NamedPrimitive { tag: 16 },
-//     };
-//     assert_eq!(
-//         "<Root><NamedPrimitive><tag>16</tag></NamedPrimitive></Root>",
-//         test_struct.to_xml().to_string()
-//     );
-// }
+#[test]
+fn test_enum_named_node() {
+    let test_struct = Root {
+        data: NestedEnum::TaggedOptions(TaggedOptions::NamedNode {
+            tag: NodeA {
+                data: "String".to_string(),
+            },
+        }),
+    };
+    assert_eq!(
+        "<Root><NamedNode><Tag><NodeA>String</NodeA></Tag></NamedNode></Root>",
+        test_struct.to_xml().to_string()
+    );
+}
 
 #[test]
-fn test_namespaced_subnode_enum() {
+fn test_enum_named_primitive() {
     let test_struct = Root {
-        data: NodeOptions::OneNamespacedSub(
+        data: NestedEnum::TaggedOptions(TaggedOptions::NamedPrimitive { tag: 16 }),
+    };
+    assert_eq!(
+        "<Root><NamedPrimitive><tag>16</tag></NamedPrimitive></Root>",
+        test_struct.to_xml().to_string()
+    );
+}
+
+#[test]
+fn test_enum_two_named_fields() {
+    let test_struct = Root {
+        data: NestedEnum::TaggedOptions(TaggedOptions::TwoNamed {
+            tag_a: NodeA {
+                data: "String".to_string(),
+            },
+            tag_b: 16,
+        }),
+    };
+    assert_eq!(
+        "<Root><TwoNamed><TagA><NodeA>String</NodeA></TagA><TagB>16</TagB></TwoNamed></Root>",
+        test_struct.to_xml().to_string()
+    );
+}
+
+#[test]
+fn test_enum_namespaced_subnode() {
+    let test_struct = Root {
+        data: NestedEnum::TaggedOptions(TaggedOptions::OneNamespacedSub(
             NodeA {
                 data: "String".to_string(),
             },
             NodeB { data: 64 },
-        ),
+        )),
     };
 
     assert_eq!(
@@ -204,4 +215,50 @@ fn test_namespaced_subnode_enum() {
     )
 }
 
-// Todo: Untagged enum tests
+#[test]
+fn test_enum_namespaced() {
+    let test_struct = Root {
+        data: NestedEnum::TaggedOptions(TaggedOptions::NamespacedNode(NodeA {
+            data: "String".to_string(),
+        })),
+    };
+
+    println!("{:?}", flexml::XMLNamespaces::hashmap().unwrap());
+    let test_xml = test_struct.to_xml();
+    println!("{:?}\n{:#?}", test_xml.namespaces(), test_xml);
+
+    assert_eq!(
+        r#"<Root xmlns:o="https://options_namespace.com/namespace"><o:NamespacedNode><NodeA>String</NodeA></o:NamespacedNode></Root>"#,
+        test_xml.to_string()
+    )
+}
+
+#[derive(ToXML)]
+#[untagged]
+enum UntaggedOptions {
+    Primitive(u64),
+    Node(NodeA),
+}
+
+#[test]
+fn test_untagged_enum_primitive() {
+    let test_struct = Root {
+        data: NestedEnum::UntaggedOptions(UntaggedOptions::Primitive(64)),
+    };
+
+    assert_eq!("<Root>64</Root>", test_struct.to_xml().to_string())
+}
+
+#[test]
+fn test_untagged_enum_node() {
+    let test_struct = Root {
+        data: NestedEnum::UntaggedOptions(UntaggedOptions::Node(NodeA {
+            data: "String".into(),
+        })),
+    };
+
+    assert_eq!(
+        "<Root><NodeA>String</NodeA></Root>",
+        test_struct.to_xml().to_string()
+    )
+}

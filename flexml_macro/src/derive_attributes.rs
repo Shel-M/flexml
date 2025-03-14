@@ -6,7 +6,8 @@ use crate::NamespaceTuple;
 pub(crate) struct DeriveAttributes {
     pub attribute: bool,
     pub case: Option<String>,
-    pub name: Option<String>,
+    pub case_all: Option<String>,
+    pub alias: Option<String>,
     pub namespace: Option<String>,
     pub namespaces: Vec<NamespaceTuple>,
     pub with: Option<Ident>,
@@ -33,8 +34,20 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
                             }
                         };
                     }
+                    "case_all" => {
+                        match attr.parse_args::<LitStr>() {
+                            Ok(s) => {
+                                ret.case_all = Some(s.value());
+                            }
+                            Err(_) => {
+                                panic!(
+                                    "Could not parse #[case_all] argument, expected string literal"
+                                )
+                            }
+                        };
+                    }
                     "name" => {
-                        ret.name = Some(
+                        ret.alias = Some(
                             attr.parse_args::<LitStr>()
                                 .expect("Expected string literal in namespace attribute")
                                 .value(),

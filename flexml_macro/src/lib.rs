@@ -36,10 +36,11 @@ impl Parse for NamespaceTuple {
 }
 
 #[proc_macro_derive(
-    XMLNode,
+    ToXML,
     attributes(
         attribute,
         case,
+        case_all,
         name,
         namespace,
         namespaces,
@@ -56,7 +57,9 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let xml_attributes = XMLAttributes::process_xml_attributes(&input);
 
     let ns_tokens = &xml_attributes.namespaces_tokens;
-    let node_tag = if xml_attributes.case.is_some() {
+    let node_tag = if xml_attributes.alias.is_some() {
+        xml_attributes.alias.unwrap()
+    } else if xml_attributes.case.is_some() {
         conv_case(&xml_attributes.name, xml_attributes.case.unwrap())
     } else {
         xml_attributes.name
@@ -68,20 +71,25 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
     let expanded_body = match &input.data {
         syn::Data::Struct(s) => {
-            let mut xml_field_attributes = StructFieldTokens::process_fields(s);
+            let mut xml_field_attributes =
+                StructFieldTokens::process_fields(s, xml_attributes.case_all);
 
             attr_tokens.append(&mut xml_field_attributes.attribute_fields);
             node_tokens.append(&mut xml_field_attributes.node_fields);
 
             quote! {
-                flexml::XMLNode::new(#node_tag)
+                flexml::XML::new(#node_tag)
                     #(#attr_tokens)*
                     #node_ns_token
                     #(#node_tokens)*
             }
         }
         syn::Data::Enum(e) => {
-            let xml_enum_variants = EnumVariantTokens::process_fields(e, xml_attributes.untagged);
+            let xml_enum_variants = EnumVariantTokens::process_fields(
+                e,
+                xml_attributes.untagged,
+                xml_attributes.case_all,
+            );
 
             let variant_tokens = xml_enum_variants.variant_tokens;
 
@@ -90,15 +98,12 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                     #(#variant_tokens)*
                 }
             }
-
-            //panic!("{:?}", xml_enum_variants);
         }
         _ => panic!("Not implemented"),
     };
     proc_macro::TokenStream::from(quote! {
-        impl flexml::IntoXMLNode for #name {
-            fn to_xml(&self) -> flexml::XMLNode {
-                use flexml::ToXMLData;
+        impl flexml::IntoXML for #name {
+            fn to_xml(&self) -> flexml::XML {
                 #(#ns_tokens)*
 
                 #expanded_body
@@ -109,7 +114,9 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
 #[derive(Default)]
 struct XMLAttributes {
+    alias: Option<String>,
     case: Option<String>,
+    case_all: Option<String>,
     name: String,
     namespace_token: Option<TokenStream>,
     namespaces_tokens: Vec<TokenStream>,
@@ -137,7 +144,9 @@ impl From<DeriveAttributes> for XMLAttributes {
         }
 
         Self {
+            alias: value.alias,
             case: value.case,
+            case_all: value.case_all,
             name: String::new(),
             namespace_token: value.namespace.map(|namespace| {
                 quote! {

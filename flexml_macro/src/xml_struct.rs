@@ -11,7 +11,7 @@ pub(crate) struct StructFieldTokens {
 }
 
 impl StructFieldTokens {
-    pub(crate) fn process_fields(data_struct: &DataStruct) -> Self {
+    pub(crate) fn process_fields(data_struct: &DataStruct, case_all: Option<String>) -> Self {
         let mut field_token_streams = Self::default();
 
         for xml_field in data_struct.fields.iter() {
@@ -20,6 +20,9 @@ impl StructFieldTokens {
             let mut struct_field = StructField::from(DeriveAttributes::from(&xml_field.attrs));
             if struct_field.unserialized {
                 continue;
+            }
+            if struct_field.case.is_none() {
+                struct_field.case = case_all.clone();
             }
 
             struct_field.name = xml_field
@@ -33,7 +36,9 @@ impl StructFieldTokens {
             };
 
             if struct_field.attribute {
-                let field_str = if struct_field.case.is_some() {
+                let field_str = if struct_field.alias.is_some() {
+                    struct_field.alias.unwrap()
+                } else if struct_field.case.is_some() {
                     conv_case(&struct_field.name, struct_field.case.unwrap())
                 } else {
                     struct_field.name.clone()
@@ -44,7 +49,7 @@ impl StructFieldTokens {
             } else {
                 let node_case = if let Some(case) = struct_field.case {
                     quote! {
-                        .case(#case).expect("Could not set node case.")
+                        .case(#case)
                     }
                 } else {
                     quote! {}
@@ -57,7 +62,7 @@ impl StructFieldTokens {
                 });
                 let cast_stream = struct_field
                     .with
-                    .map_or(quote! {.to_xml_data()}, |with| quote! {.#with()});
+                    .map_or(quote! {.to_xml()}, |with| quote! {.#with()});
 
                 let xml_type = &struct_field.ty.unwrap_or_else(|| {
                     panic!("Could not determine type of field {}", struct_field.name)
@@ -68,7 +73,7 @@ impl StructFieldTokens {
                         .data(
                             self.#name.iter()
                                 .map(|d| d #cast_stream #node_case #namespace_stream)
-                                .collect::<Vec<flexml::XMLData>>().as_slice()
+                                .collect::<Vec<flexml::XML>>().as_slice()
                         )
                     }
                 } else {
@@ -86,6 +91,7 @@ impl StructFieldTokens {
 }
 
 struct StructField {
+    alias: Option<String>,
     attribute: bool,
     case: Option<String>,
     name: String,
@@ -98,6 +104,7 @@ struct StructField {
 impl From<DeriveAttributes> for StructField {
     fn from(value: DeriveAttributes) -> Self {
         StructField {
+            alias: value.alias,
             attribute: value.attribute,
             case: value.case,
             name: String::new(),

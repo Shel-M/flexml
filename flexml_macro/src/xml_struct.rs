@@ -1,51 +1,48 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::{DataStruct, Ident, LitStr, Type, TypePath};
+use quote::quote;
+use syn::{DataStruct, Ident, Type, TypePath};
 
 use crate::{conv_case, type_is_vec, DeriveAttributes};
 
 #[derive(Default)]
-pub(crate) struct XMLStructFieldAttributes {
+pub(crate) struct StructFieldTokens {
     pub attribute_fields: Vec<TokenStream>,
     pub node_fields: Vec<TokenStream>,
 }
 
-impl XMLStructFieldAttributes {
-    pub(crate) fn process_field_attributes(data_struct: &DataStruct, with: &Option<Ident>) -> Self {
+impl StructFieldTokens {
+    pub(crate) fn process_fields(data_struct: &DataStruct) -> Self {
         let mut field_token_streams = Self::default();
 
-        for field in data_struct.fields.iter() {
-            let name = &field.ident;
+        for xml_field in data_struct.fields.iter() {
+            let name = &xml_field.ident;
 
-            let mut xml_field = XMLField::from(DeriveAttributes::from(&field.attrs));
-            if xml_field.unserialized {
+            let mut struct_field = StructField::from(DeriveAttributes::from(&xml_field.attrs));
+            if struct_field.unserialized {
                 continue;
             }
 
-            xml_field.name = field
+            struct_field.name = xml_field
                 .ident
                 .clone()
                 .expect("Expected named field")
                 .to_string();
-            if xml_field.with.is_none() {
-                xml_field.with = with.clone();
+
+            if let Type::Path(path) = xml_field.ty.clone() {
+                struct_field.ty = Some(path);
             };
 
-            if let Type::Path(path) = field.ty.clone() {
-                xml_field.ty = Some(path);
-            };
-
-            if xml_field.attribute {
-                let field_str = if xml_field.case.is_some() {
-                    conv_case(&xml_field.name, xml_field.case.unwrap())
+            if struct_field.attribute {
+                let field_str = if struct_field.case.is_some() {
+                    conv_case(&struct_field.name, struct_field.case.unwrap())
                 } else {
-                    xml_field.name.clone()
+                    struct_field.name.clone()
                 };
                 field_token_streams.attribute_fields.push(quote! {
                     .attribute(#field_str, self. #name .to_string())
                 })
             } else {
-                let node_case = if let Some(case) = xml_field.case {
+                let node_case = if let Some(case) = struct_field.case {
                     quote! {
                         .case(#case).expect("Could not set node case.")
                     }
@@ -53,17 +50,17 @@ impl XMLStructFieldAttributes {
                     quote! {}
                 };
 
-                let namespace_stream = xml_field.namespace.map_or(quote! {}, |ns| {
+                let namespace_stream = struct_field.namespace.map(|ns| {
                     quote! {
                         .namespace(#ns).expect("Failed to set node namespace.")
                     }
                 });
-                let cast_stream = xml_field
+                let cast_stream = struct_field
                     .with
                     .map_or(quote! {.to_xml_data()}, |with| quote! {.#with()});
 
-                let xml_type = &xml_field.ty.unwrap_or_else(|| {
-                    panic!("Could not determine type of field {}", xml_field.name)
+                let xml_type = &struct_field.ty.unwrap_or_else(|| {
+                    panic!("Could not determine type of field {}", struct_field.name)
                 });
 
                 let stream = if type_is_vec(xml_type) {
@@ -88,7 +85,7 @@ impl XMLStructFieldAttributes {
     }
 }
 
-struct XMLField {
+struct StructField {
     attribute: bool,
     case: Option<String>,
     name: String,
@@ -98,9 +95,9 @@ struct XMLField {
     with: Option<Ident>,
 }
 
-impl From<DeriveAttributes> for XMLField {
+impl From<DeriveAttributes> for StructField {
     fn from(value: DeriveAttributes) -> Self {
-        XMLField {
+        StructField {
             attribute: value.attribute,
             case: value.case,
             name: String::new(),

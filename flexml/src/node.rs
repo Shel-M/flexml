@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use log::warn;
 
 use crate::conv_case;
-use crate::{ToXMLData, XMLData, XMLError, XMLNamespace, XMLNamespaces};
+use crate::{IntoXML, XMLError, XMLNamespace, XMLNamespaces, XML};
 
 use std::fmt::Display;
 
@@ -12,7 +12,7 @@ pub struct XMLNode {
     namespace: Option<XMLNamespace>,
 
     attributes: IndexMap<&'static str, String>,
-    data: Vec<XMLData>,
+    data: Vec<XML>,
 }
 
 impl XMLNode {
@@ -92,9 +92,7 @@ impl XMLNode {
         }
 
         for datum in &self.data {
-            if let XMLData::Node(node) = datum {
-                ret.append(&mut node.namespaces())
-            }
+            ret.append(&mut datum.namespaces())
         }
 
         ret.sort();
@@ -103,36 +101,41 @@ impl XMLNode {
     }
 
     #[inline]
-    pub fn data(mut self, value: &[XMLData]) -> Self {
-        self.data.extend_from_slice(value);
+    pub fn data<T: IntoXML>(mut self, data: &[T]) -> Self {
+        self.add_data(data);
         self
     }
 
     #[inline]
-    pub fn add_data(&mut self, value: &[XMLData]) {
-        self.data.extend_from_slice(value);
+    pub fn add_data<T: IntoXML>(&mut self, data: &[T]) {
+        self.data.extend_from_slice(
+            data.iter()
+                .map(|d| d.to_xml())
+                .collect::<Vec<XML>>()
+                .as_slice(),
+        );
     }
 
     #[inline]
-    pub fn datum(mut self, datum: XMLData) -> Self {
+    pub fn datum<T: IntoXML>(mut self, datum: T) -> Self {
         self.add_datum(datum);
         self
     }
 
     #[inline]
-    pub fn add_datum(&mut self, datum: XMLData) {
-        self.data.push(datum)
+    pub fn add_datum<T: IntoXML>(&mut self, datum: T) {
+        self.data.push(datum.to_xml())
     }
 
     #[inline]
     pub fn node(mut self, node: XMLNode) -> Self {
-        self.add_datum(node.into());
+        self.add_datum(XML::Node(node));
         self
     }
 
     #[inline]
     pub fn add_node(&mut self, node: XMLNode) {
-        self.add_datum(node.into())
+        self.add_datum(XML::Node(node))
     }
 
     #[inline]
@@ -143,18 +146,18 @@ impl XMLNode {
 
     #[inline]
     pub fn add_nodes(&mut self, nodes: &[XMLNode]) {
-        self.data.extend(nodes.iter().cloned().map(XMLData::Node))
+        self.data.extend(nodes.iter().cloned().map(XML::Node))
     }
 
     #[inline]
     pub fn text(mut self, text: &String) -> Self {
-        self.add_datum(text.to_xml_data());
+        self.add_datum(text.to_xml());
         self
     }
 
     #[inline]
     pub fn add_text(&mut self, text: &String) {
-        self.add_datum(text.to_xml_data())
+        self.add_datum(text.to_xml())
     }
 
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -179,6 +182,12 @@ impl XMLNode {
             write!(f, "</{ns_tag}>")?;
             Ok(())
         }
+    }
+}
+
+impl IntoXML for XMLNode {
+    fn to_xml(&self) -> XML {
+        XML::Node(self.to_owned())
     }
 }
 

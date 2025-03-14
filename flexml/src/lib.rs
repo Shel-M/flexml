@@ -1,12 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-pub mod data;
-pub mod namespace;
-pub mod node;
+mod data;
+mod into_xml;
+mod namespace;
+mod node;
 
 pub use data::*;
+pub use into_xml::*;
 pub use namespace::*;
-pub use node::*;
 
 #[cfg(any(feature = "macro", test))]
 pub use flexml_macro as macros;
@@ -20,10 +21,6 @@ use std::{
     error::Error,
     fmt::{self, Debug, Display},
 };
-
-pub trait IntoXMLNode {
-    fn to_xml(&self) -> XMLNode;
-}
 
 #[derive(Debug)]
 pub enum XMLError {

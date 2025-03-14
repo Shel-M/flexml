@@ -17,10 +17,10 @@ If you'd like to change this, you're welcome to submit a pull request, and I am 
 # Examples
 Macro usage example
 ```rust
-use flexml::IntoXMLNode;
-use flexml::macros::XMLNode;
+use flexml::macros::ToXML;
+use flexml::{IntoXML, XML};
 
-#[derive(XMLNode)]
+#[derive(ToXML)]
 
 // The default will match the struct name, this tag overrides.
 #[name("foo")]
@@ -45,6 +45,7 @@ struct Foo {
 
     // Display is used to convert attributes
     #[attribute]
+    #[name("Attrib1")] // #[name] can be used to manually alias a field
     attrib1: String,
     // A case string may be passed into attributes. 
     // See [heck] for supported casing schemes.
@@ -55,7 +56,7 @@ struct Foo {
     unserialized_field: String,
 }
 
-#[derive(XMLNode)]
+#[derive(ToXML)]
 struct Node {
     // Nodes are inserted in-order, so you can use mixed media.
 
@@ -84,7 +85,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:foo attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
+        r#"<n:foo Attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
         test_structure.to_xml().to_string()
     )
 }
@@ -93,9 +94,8 @@ fn foo() {
 Which is equivalent to this non-macro implementation
 
 ```rust
-use flexml::IntoXMLNode;
-use flexml::XMLData;
-use flexml::XMLNode;
+use flexml::XML;
+use flexml::IntoXML;
 use flexml::XMLNamespaces;
 
 struct Root {
@@ -106,8 +106,8 @@ struct Root {
     attrib2: &'static str,
 }
 
-impl IntoXMLNode for Root {
-    fn to_xml(&self) -> XMLNode {
+impl IntoXML for Root {
+    fn to_xml(&self) -> XML {
         XMLNamespaces::insert("Namespace1",
             "https://namespace1.com/namespace")
             // This is why the macro can panic at runtime. 
@@ -118,10 +118,10 @@ impl IntoXMLNode for Root {
             "https://namespace2.com/namespace")
             .expect("failed to insert namespace");
 
-        let data1_nodes: Vec<XMLNode> = self.data1.iter()
+        let data1_nodes: Vec<XML> = self.data1.iter()
             .map(|n| n.to_xml()).collect();
 
-        let node = XMLNode::new("root")
+        XML::new("root")
             .attribute("attrib1", &self.attrib1)
             .attribute("Attrib2", &self.attrib2)
             .namespace("Namespace1").expect("Failed to set doc namespace")
@@ -131,9 +131,7 @@ impl IntoXMLNode for Root {
                     .to_xml()
                     .namespace("Namespace1")
                     .expect("Failed to set node namespace"),
-            );
-
-        node
+            )
     }
 }
 
@@ -142,21 +140,19 @@ struct Node {
     data2: Vec<Node>,
 }
 
-impl IntoXMLNode for Node {
-    fn to_xml(&self) -> XMLNode {
-
-        let node = XMLNode::new("Node")
+impl IntoXML for Node {
+    fn to_xml(&self) -> XML {
+        XML::new("Node")
             .text(&self.data1)
             // You can also use .data() or .datum().
-            // Convert the type with .into().
+            // Convert the type with .to_xml().
             .data(
                 self.data2
                     .iter()
-                    .map(|d| d.into())
-                    .collect::<Vec<XMLData>>()
+                    .map(|d| d.to_xml())
+                    .collect::<Vec<XML>>()
                     .as_slice(),
-            );
-        node
+            )
     }
 }
 

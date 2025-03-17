@@ -4,6 +4,15 @@ pub trait IntoXML {
     fn to_xml(&self) -> XML;
 }
 
+impl<T: IntoXML> IntoXML for Option<T> {
+    fn to_xml(&self) -> XML {
+        match self {
+            Some(v) => v.to_xml(),
+            None => XML::None,
+        }
+    }
+}
+
 impl IntoXML for &str {
     fn to_xml(&self) -> XML {
         XML::Text(self.to_string())

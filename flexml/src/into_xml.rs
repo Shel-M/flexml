@@ -13,6 +13,17 @@ impl<T: IntoXML> IntoXML for Option<T> {
     }
 }
 
+impl<T: IntoXML> IntoXML for Vec<T> {
+    fn to_xml(&self) -> XML {
+        XML::new_untagged().data(
+            self.iter()
+                .map(|v| v.to_xml())
+                .collect::<Vec<XML>>()
+                .as_slice(),
+        )
+    }
+}
+
 impl IntoXML for bool {
     fn to_xml(&self) -> XML {
         match self {

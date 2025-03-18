@@ -50,7 +50,7 @@ impl XMLNamespaces {
             }
         }
 
-        return Ok(None);
+        Ok(None)
     }
 
     pub fn insert(namespace: &'static str, uri: &'static str) -> Result<(), XMLError> {
@@ -66,7 +66,7 @@ impl XMLNamespaces {
         let mut values = ns.values();
         let mut alias = namespace.to_lowercase()[0..=0].to_string();
         loop {
-            if values.find(|v| v.alias == alias).is_some() {
+            if values.any(|v| v.alias == alias) {
                 alias.replace_range(.., &namespace.to_lowercase()[0..=alias.len()]);
                 continue;
             }

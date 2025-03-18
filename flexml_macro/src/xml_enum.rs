@@ -159,10 +159,6 @@ impl EnumVariant {
         let fields = std::convert::Into::<Fields>::into(fields.clone());
 
         let variant_name = &self.name;
-        let conv_call = match &self.with {
-            Some(ref with) => quote! {.#with()},
-            None => quote! {.to_xml()},
-        };
 
         let matching = (0..fields.len())
             .map(|i| {
@@ -179,6 +175,10 @@ impl EnumVariant {
             }
             let n = format_ident!("n{i}");
 
+            let conv_call = match &field_attributes.with {
+                Some(ref with) => quote! {.#with()},
+                None => quote! {.to_xml()},
+            };
             let namespace_stream = field_attributes.namespace.map(|ns| {
                 quote! {
                     .namespace(#ns).expect("Failed to set node namespace.")
@@ -186,19 +186,22 @@ impl EnumVariant {
             });
             field_tokens.push(quote! {#n #conv_call #namespace_stream})
         }
-        if self.untagged {
-            quote! {Self::#variant_name(#(#matching,)*) => flexml::XML::new_untagged()#(.datum(#field_tokens))* ,}
-        } else {
-            let variant_alias = &self.alias;
 
-            let namespace_stream = self.namespace.as_ref().map(|ns| {
-                quote! {
-                    .namespace(#ns).expect("Failed to set node namespace.")
+        match &self.with {
+            Some(ref with) => quote! {Self::#variant_name(#(#matching,)*) => self.#with(),},
+            None => {
+                if self.untagged {
+                    quote! {Self::#variant_name(#(#matching,)*) => flexml::XML::new_untagged()#(.datum(#field_tokens))* ,}
+                } else {
+                    let variant_alias = &self.alias;
+
+                    let namespace_stream = self.namespace.as_ref().map(|ns| {
+                        quote! {
+                            .namespace(#ns).expect("Failed to set node namespace.")
+                        }
+                    });
+                    quote! {Self::#variant_name(#(#matching,)*) => flexml::XML::new(#variant_alias) #namespace_stream #(.datum(#field_tokens))*,}
                 }
-            });
-            quote! {
-                Self::#variant_name(#(#matching,)*) =>
-                flexml::XML::new(#variant_alias) #namespace_stream #(.datum(#field_tokens))* ,
             }
         }
     }

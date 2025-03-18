@@ -320,6 +320,19 @@ fn test_untagged_enum_node() {
 #[untagged]
 enum NamedEnum {
     Primitive(u16),
+    #[with(repeat)]
+    WithValue(u8),
+}
+
+impl NamedEnum {
+    fn repeat(&self) -> XML {
+        if let Self::WithValue(v) = self {
+            let v = (0..*v).map(|i| i.to_xml()).collect::<Vec<XML>>();
+            XML::new_untagged().data(v.as_slice())
+        } else {
+            self.to_xml()
+        }
+    }
 }
 
 #[test]
@@ -327,4 +340,11 @@ fn test_named_tagged_enum_primitive() {
     let test_value = NamedEnum::Primitive(16);
 
     assert_eq!("<NamedEnum>16</NamedEnum>", test_value.to_xml().to_string())
+}
+
+#[test]
+fn test_named_tagged_enum_with() {
+    let test_value = NamedEnum::WithValue(2);
+
+    assert_eq!("<NamedEnum>01</NamedEnum>", test_value.to_xml().to_string())
 }

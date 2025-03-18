@@ -2,17 +2,47 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{DataStruct, Ident, Type, TypePath};
 
-use crate::{conv_case, type_is_vec, DeriveAttributes};
+use crate::{conv_case, type_is_vec, DeriveAttributes, XMLAttributes};
 
 #[derive(Default)]
-pub(crate) struct StructFieldTokens {
+pub(crate) struct StructHandler {
     pub attribute_fields: Vec<TokenStream>,
     pub node_fields: Vec<TokenStream>,
 }
 
-impl StructFieldTokens {
-    pub(crate) fn process_fields(data_struct: &DataStruct, case_all: Option<String>) -> Self {
+impl StructHandler {
+    pub(crate) fn expand_tokens(
+        data_struct: &DataStruct,
+        xml_attributes: &XMLAttributes,
+    ) -> TokenStream {
+        let mut xml_field_attributes = StructHandler::process_fields(data_struct, xml_attributes);
+
+        let mut attr_tokens = Vec::new();
+        let mut node_tokens = Vec::new();
+
+        attr_tokens.append(&mut xml_field_attributes.attribute_fields);
+        node_tokens.append(&mut xml_field_attributes.node_fields);
+
+        let node_tag = xml_attributes.get_node_tag();
+        let node_ns_token = &xml_attributes.namespace_token;
+        quote! {
+            flexml::XML::new(#node_tag)
+                #(#attr_tokens)*
+                #node_ns_token
+                #(#node_tokens)*
+        }
+    }
+    pub(crate) fn process_fields(data_struct: &DataStruct, xml_attributes: &XMLAttributes) -> Self {
         let mut field_token_streams = Self::default();
+
+        if let (Some(unit_repr), true) = (&xml_attributes.unit_repr, data_struct.fields.is_empty())
+        {
+            field_token_streams.node_fields.push(quote! {
+                .datum(#unit_repr)
+            });
+
+            return field_token_streams;
+        }
 
         for xml_field in data_struct.fields.iter() {
             let name = &xml_field.ident;
@@ -22,7 +52,7 @@ impl StructFieldTokens {
                 continue;
             }
             if struct_field.case.is_none() {
-                struct_field.case = case_all.clone();
+                struct_field.case = xml_attributes.case_all.clone();
             }
 
             struct_field.name = xml_field

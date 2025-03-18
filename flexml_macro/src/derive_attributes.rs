@@ -1,4 +1,4 @@
-use syn::{punctuated::Punctuated, Attribute, Ident, LitStr, Token};
+use syn::{punctuated::Punctuated, Attribute, Ident, Lit, LitStr, Token};
 
 use crate::NamespaceTuple;
 
@@ -11,6 +11,7 @@ pub(crate) struct DeriveAttributes {
     pub namespace: Option<String>,
     pub namespaces: Vec<NamespaceTuple>,
     pub with: Option<Ident>,
+    pub unit_repr: Option<Lit>,
     pub unserialized: bool,
     pub untagged: bool,
 }
@@ -72,6 +73,10 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
                             attr.parse_args::<Ident>()
                                 .expect("Expected identifier in with attribute"),
                         )
+                    }
+                    "unit_repr" => {
+                        ret.unit_repr =
+                            Some(attr.parse_args::<Lit>().expect("Expected literal value"))
                     }
                     "unserialized" => {
                         ret.unserialized = true;

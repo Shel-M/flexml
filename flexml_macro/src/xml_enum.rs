@@ -2,27 +2,57 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{DataEnum, Fields, FieldsNamed, FieldsUnnamed, Ident};
 
-use crate::{conv_case, DeriveAttributes};
+use crate::{conv_case, DeriveAttributes, XMLAttributes};
 
 #[derive(Debug)]
-pub(crate) struct EnumVariantTokens {
+pub(crate) struct EnumHandler {
     pub variant_tokens: Vec<TokenStream>,
 }
 
-impl EnumVariantTokens {
-    pub(crate) fn process_fields(
+impl EnumHandler {
+    pub(crate) fn expand_tokens(
         data_enum: &DataEnum,
-        untagged: bool,
-        case_all: Option<String>,
-    ) -> Self {
+        xml_attributes: &XMLAttributes,
+    ) -> TokenStream {
+        let xml_enum_variants = EnumHandler::process_fields(data_enum, xml_attributes);
+
+        let node_tag = xml_attributes.get_node_tag();
+        if data_enum.variants.is_empty() {
+            let unit_repr = &xml_attributes.unit_repr;
+            quote! {
+                flexml::XML::new(#node_tag) .datum(#unit_repr) ,
+            };
+        }
+        let variant_tokens = xml_enum_variants.variant_tokens;
+        if xml_attributes.alias.is_some() || xml_attributes.case.is_some() {
+            let node_ns_token = &xml_attributes.namespace_token;
+
+            quote! {
+                flexml::XML::new(#node_tag)
+                    #node_ns_token
+                    .datum(
+                        match self {
+                            #(#variant_tokens)*
+                        })
+            }
+        } else {
+            quote! {
+                match self {
+                    #(#variant_tokens)*
+                }
+            }
+        }
+    }
+
+    pub(crate) fn process_fields(data_enum: &DataEnum, xml_attributes: &XMLAttributes) -> Self {
         let mut variant_tokens = Vec::new();
 
         for xml_variant in &data_enum.variants {
             let mut variant = EnumVariant::from(DeriveAttributes::from(&xml_variant.attrs));
-            variant.untagged = untagged;
+            variant.untagged = xml_attributes.untagged;
             variant.name = Some(xml_variant.ident.clone());
             if variant.case.is_none() {
-                variant.case = case_all.clone();
+                variant.case = xml_attributes.case_all.clone();
             }
 
             if variant.alias.is_empty() {
@@ -39,13 +69,15 @@ impl EnumVariantTokens {
                 syn::Fields::Unnamed(fields_unnamed) => {
                     variant.unnamed_fields_to_tokens(fields_unnamed, &variant.case_all)
                 }
-                syn::Fields::Unit => todo!(),
+                syn::Fields::Unit => {
+                    quote! {}
+                }
             };
 
             variant_tokens.push(field_tokens)
         }
 
-        EnumVariantTokens { variant_tokens }
+        EnumHandler { variant_tokens }
     }
 }
 

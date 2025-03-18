@@ -14,10 +14,10 @@ use heck::{
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::{parenthesized, TypePath};
+use syn::{parenthesized, Lit, TypePath};
 use syn::{parse_macro_input, DeriveInput, LitStr, Token};
-use xml_enum::EnumVariantTokens;
-use xml_struct::StructFieldTokens;
+use xml_enum::EnumHandler;
+use xml_struct::StructHandler;
 
 #[derive(Debug)]
 enum NamespaceTuple {
@@ -45,6 +45,7 @@ impl Parse for NamespaceTuple {
         namespace,
         namespaces,
         with,
+        unit_repr,
         unserialized,
         untagged
     )
@@ -57,48 +58,12 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let xml_attributes = XMLAttributes::process_xml_attributes(&input);
 
     let ns_tokens = &xml_attributes.namespaces_tokens;
-    let node_tag = if xml_attributes.alias.is_some() {
-        xml_attributes.alias.unwrap()
-    } else if xml_attributes.case.is_some() {
-        conv_case(&xml_attributes.name, xml_attributes.case.unwrap())
-    } else {
-        xml_attributes.name
-    };
-    let node_ns_token = &xml_attributes.namespace_token;
-
-    let mut attr_tokens = Vec::new();
-    let mut node_tokens = Vec::new();
 
     let expanded_body = match &input.data {
-        syn::Data::Struct(s) => {
-            let mut xml_field_attributes =
-                StructFieldTokens::process_fields(s, xml_attributes.case_all);
-
-            attr_tokens.append(&mut xml_field_attributes.attribute_fields);
-            node_tokens.append(&mut xml_field_attributes.node_fields);
-
-            quote! {
-                flexml::XML::new(#node_tag)
-                    #(#attr_tokens)*
-                    #node_ns_token
-                    #(#node_tokens)*
-            }
+        syn::Data::Struct(data_struct) => {
+            StructHandler::expand_tokens(data_struct, &xml_attributes)
         }
-        syn::Data::Enum(e) => {
-            let xml_enum_variants = EnumVariantTokens::process_fields(
-                e,
-                xml_attributes.untagged,
-                xml_attributes.case_all,
-            );
-
-            let variant_tokens = xml_enum_variants.variant_tokens;
-
-            quote! {
-                match self {
-                    #(#variant_tokens)*
-                }
-            }
-        }
+        syn::Data::Enum(data_enum) => EnumHandler::expand_tokens(data_enum, &xml_attributes),
         _ => panic!("Not implemented"),
     };
     proc_macro::TokenStream::from(quote! {
@@ -120,6 +85,7 @@ struct XMLAttributes {
     name: String,
     namespace_token: Option<TokenStream>,
     namespaces_tokens: Vec<TokenStream>,
+    unit_repr: Option<Lit>,
     untagged: bool,
 }
 
@@ -128,6 +94,16 @@ impl XMLAttributes {
         let mut xml_attributes = Self::from(DeriveAttributes::from(&input.attrs));
         xml_attributes.name = input.ident.to_string();
         xml_attributes
+    }
+
+    fn get_node_tag(&self) -> String {
+        if self.alias.is_some() {
+            self.alias.as_ref().unwrap().to_string()
+        } else if self.case.is_some() {
+            conv_case(&self.name, self.case.as_ref().unwrap())
+        } else {
+            self.name.to_string()
+        }
     }
 }
 
@@ -158,6 +134,7 @@ impl From<DeriveAttributes> for XMLAttributes {
                 quote! {
                 flexml::XMLNamespaces::insert(#ns, #uri).expect("failed to insert namespace");
             }}).collect(),
+            unit_repr: value.unit_repr,
             untagged: value.untagged
         }
     }

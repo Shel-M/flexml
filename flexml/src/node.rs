@@ -150,14 +150,14 @@ impl XMLNode {
     }
 
     #[inline]
-    pub fn text(mut self, text: &String) -> Self {
-        self.add_datum(text.to_xml());
+    pub fn text<T: Display>(mut self, text: &T) -> Self {
+        self.add_datum(text.to_string().to_xml());
         self
     }
 
     #[inline]
-    pub fn add_text(&mut self, text: &String) {
-        self.add_datum(text.to_xml())
+    pub fn add_text<T: Display>(&mut self, text: &T) {
+        self.add_datum(text.to_string().to_xml())
     }
 
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -13,6 +13,15 @@ impl<T: IntoXML> IntoXML for Option<T> {
     }
 }
 
+impl IntoXML for bool {
+    fn to_xml(&self) -> XML {
+        match self {
+            true => "true".to_xml(),
+            false => "false".to_xml(),
+        }
+    }
+}
+
 impl IntoXML for &str {
     fn to_xml(&self) -> XML {
         XML::Text(self.to_string())

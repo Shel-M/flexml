@@ -141,40 +141,47 @@ enum NestedEnum {
 }
 
 #[derive(ToXML)]
+#[unit_repr(true)]
 enum TaggedOptions {
-    OneNamespacedSub(#[namespace("options_namespace")] NodeA, NodeB),
-    TaggedNode(NodeA),
+    OneNamespacedSub(
+        #[namespace("options_namespace")] TaggedOptionsNodeA,
+        TaggedOptionsNodeB,
+    ),
+    TaggedNode(TaggedOptionsNodeA),
     Primitive(u16),
     NamedNode {
         #[case("PascalCase")]
-        tag: NodeA,
+        tag: TaggedOptionsNodeA,
     },
     NamedPrimitive {
         tag: u16,
     },
     #[case_all("PascalCase")]
     TwoNamed {
-        tag_a: NodeA,
+        tag_a: TaggedOptionsNodeA,
         tag_b: u16,
     },
     #[namespace("options_namespace")]
-    NamespacedNode(NodeA),
+    NamespacedNode(TaggedOptionsNodeA),
+    BoolUnit,
 }
 
 #[derive(ToXML)]
-struct NodeA {
+#[name("NodeA")]
+struct TaggedOptionsNodeA {
     data: String,
 }
 
 #[derive(ToXML)]
-struct NodeB {
+#[name("NodeB")]
+struct TaggedOptionsNodeB {
     data: u64,
 }
 
 #[test]
 fn test_enum_tagged() {
     let test_struct = TaggedEnumRoot {
-        data: NestedEnum::TaggedOptions(TaggedOptions::TaggedNode(NodeA {
+        data: NestedEnum::TaggedOptions(TaggedOptions::TaggedNode(TaggedOptionsNodeA {
             data: "String".to_string(),
         })),
     };
@@ -199,7 +206,7 @@ fn test_enum_primitive() {
 fn test_enum_named_node() {
     let test_struct = TaggedEnumRoot {
         data: NestedEnum::TaggedOptions(TaggedOptions::NamedNode {
-            tag: NodeA {
+            tag: TaggedOptionsNodeA {
                 data: "String".to_string(),
             },
         }),
@@ -225,7 +232,7 @@ fn test_enum_named_primitive() {
 fn test_enum_two_named_fields() {
     let test_struct = TaggedEnumRoot {
         data: NestedEnum::TaggedOptions(TaggedOptions::TwoNamed {
-            tag_a: NodeA {
+            tag_a: TaggedOptionsNodeA {
                 data: "String".to_string(),
             },
             tag_b: 16,
@@ -241,10 +248,10 @@ fn test_enum_two_named_fields() {
 fn test_enum_namespaced_subnode() {
     let test_struct = TaggedEnumRoot {
         data: NestedEnum::TaggedOptions(TaggedOptions::OneNamespacedSub(
-            NodeA {
+            TaggedOptionsNodeA {
                 data: "String".to_string(),
             },
-            NodeB { data: 64 },
+            TaggedOptionsNodeB { data: 64 },
         )),
     };
 
@@ -257,7 +264,7 @@ fn test_enum_namespaced_subnode() {
 #[test]
 fn test_enum_namespaced() {
     let test_struct = TaggedEnumRoot {
-        data: NestedEnum::TaggedOptions(TaggedOptions::NamespacedNode(NodeA {
+        data: NestedEnum::TaggedOptions(TaggedOptions::NamespacedNode(TaggedOptionsNodeA {
             data: "String".to_string(),
         })),
     };
@@ -272,11 +279,17 @@ fn test_enum_namespaced() {
     )
 }
 
+#[test]
+fn test_enum_unit() {
+    let test_value = TaggedOptions::BoolUnit;
+    assert_eq!("<BoolUnit>true</BoolUnit>", test_value.to_xml().to_string());
+}
+
 #[derive(ToXML)]
 #[untagged]
 enum UntaggedOptions {
     Primitive(u64),
-    Node(NodeA),
+    Node(TaggedOptionsNodeA),
 }
 
 #[test]
@@ -291,7 +304,7 @@ fn test_untagged_enum_primitive() {
 #[test]
 fn test_untagged_enum_node() {
     let test_struct = TaggedEnumRoot {
-        data: NestedEnum::UntaggedOptions(UntaggedOptions::Node(NodeA {
+        data: NestedEnum::UntaggedOptions(UntaggedOptions::Node(TaggedOptionsNodeA {
             data: "String".into(),
         })),
     };

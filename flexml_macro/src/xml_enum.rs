@@ -69,9 +69,7 @@ impl EnumHandler {
                 syn::Fields::Unnamed(fields_unnamed) => {
                     variant.unnamed_fields_to_tokens(fields_unnamed, &variant.case_all)
                 }
-                syn::Fields::Unit => {
-                    quote! {}
-                }
+                syn::Fields::Unit => variant.unit_fields_to_tokens(xml_attributes),
             };
 
             variant_tokens.push(field_tokens)
@@ -201,6 +199,31 @@ impl EnumVariant {
             quote! {
                 Self::#variant_name(#(#matching,)*) =>
                 flexml::XML::new(#variant_alias) #namespace_stream #(.datum(#field_tokens))* ,
+            }
+        }
+    }
+
+    fn unit_fields_to_tokens(&self, xml_attributes: &XMLAttributes) -> TokenStream {
+        let variant_name = &self.name;
+        let conv_call = match &self.with {
+            Some(ref with) => quote! {.#with()},
+            None => quote! {.to_xml()},
+        };
+
+        let unit_repr = &xml_attributes.unit_repr;
+        if self.untagged {
+            quote! {Self::#variant_name => flexml::XML::new_untagged().datum(#unit_repr #conv_call) ,}
+        } else {
+            let variant_alias = &self.alias;
+
+            let namespace_stream = self.namespace.as_ref().map(|ns| {
+                quote! {
+                    .namespace(#ns).expect("Failed to set node namespace.")
+                }
+            });
+            quote! {
+                Self::#variant_name =>
+                flexml::XML::new(#variant_alias) #namespace_stream .datum(#unit_repr #conv_call) ,
             }
         }
     }

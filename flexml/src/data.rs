@@ -59,6 +59,7 @@ impl XML {
             XML::Container(ref mut nodes) => {
                 nodes.iter_mut().for_each(|n| n.set_name(name.to_string()))
             }
+            XML::Text(s) => *self = Self::new(name).text(s),
             _ => {}
         }
     }

@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{DataStruct, Ident, Type, TypePath};
+use quote::{format_ident, quote, ToTokens};
+use syn::{DataStruct, Ident, Index, Type, TypePath};
 
 use crate::{conv_case, type_is_vec, DeriveAttributes, XMLAttributes};
 
@@ -44,9 +44,7 @@ impl StructHandler {
             return field_token_streams;
         }
 
-        for xml_field in data_struct.fields.iter() {
-            let name = &xml_field.ident;
-
+        for (i, xml_field) in data_struct.fields.iter().enumerate() {
             let mut struct_field = StructField::from(DeriveAttributes::from(&xml_field.attrs));
             if struct_field.unserialized {
                 continue;
@@ -58,8 +56,13 @@ impl StructHandler {
             struct_field.name = xml_field
                 .ident
                 .clone()
-                .expect("Expected named field")
-                .to_string();
+                .map_or(i.to_string(), |s| s.to_string());
+
+            let name = if xml_field.ident.is_some() {
+                xml_field.ident.as_ref().unwrap().into_token_stream()
+            } else {
+                Index::from(i).into_token_stream()
+            };
 
             if let Type::Path(path) = xml_field.ty.clone() {
                 struct_field.ty = Some(path);
@@ -77,6 +80,13 @@ impl StructHandler {
                     .attribute(#field_str, self. #name .to_string())
                 })
             } else {
+                let alias = if let Some(alias) = struct_field.alias {
+                    quote! {
+                        .name(#alias)
+                    }
+                } else {
+                    quote! {}
+                };
                 let node_case = if let Some(case) = struct_field.case {
                     quote! {
                         .case(#case)
@@ -102,13 +112,13 @@ impl StructHandler {
                     quote! {
                         .data(
                             self.#name.iter()
-                                .map(|d| d #cast_stream #node_case #namespace_stream)
+                                .map(|d| d #cast_stream #alias #node_case #namespace_stream)
                                 .collect::<Vec<flexml::XML>>().as_slice()
                         )
                     }
                 } else {
                     quote! {
-                        .datum(self.#name #cast_stream #node_case #namespace_stream)
+                        .datum(self.#name #cast_stream #alias #node_case #namespace_stream)
                     }
                 };
 

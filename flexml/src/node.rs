@@ -1,43 +1,42 @@
 use indexmap::IndexMap;
 use log::warn;
 
-use crate::conv_case;
-use crate::{IntoXML, XMLError, XMLNamespace, XMLNamespaces, XML};
+use crate::{conv_case, XMLNamespace};
+use crate::{IntoXML, XMLError, XMLNamespaces, XML};
 
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
-pub struct XMLNode {
+pub struct XMLNode<'a> {
     name: String,
-    namespace: Option<XMLNamespace>,
-
-    attributes: IndexMap<&'static str, String>,
-    data: Vec<XML>,
+    namespace: Option<&'a XMLNamespace>,
+    attributes: IndexMap<String, String>,
+    data: Vec<XML<'a>>,
 }
 
-impl XMLNode {
+impl<'a, 'b: 'a> XMLNode<'a> {
     pub fn new<T: Display>(name: T) -> Self {
         Self {
             name: name.to_string(),
             namespace: None,
-
             attributes: IndexMap::new(),
             data: Vec::new(),
         }
     }
 
     #[inline]
-    pub fn attribute<T: Display>(
+    pub fn attribute<T: Display, V: Display>(
         mut self,
-        attribute_name: &'static str,
-        attribute_value: T,
+        attribute_name: T,
+        attribute_value: V,
     ) -> Self {
         self.add_attribute(attribute_name, attribute_value);
         self
     }
 
     #[inline]
-    pub fn add_attribute<T: Display>(&mut self, attribute_name: &'static str, attribute_value: T) {
+    pub fn add_attribute<T: Display, V: Display>(&mut self, attribute_name: T, attribute_value: V) {
+        let attribute_name = attribute_name.to_string();
         if self.attributes.contains_key(&attribute_name) {
             warn!(
                 "Duplicate attribute {attribute_name} added to {}. Overwriting.",
@@ -59,55 +58,69 @@ impl XMLNode {
         self.name = name.to_string()
     }
 
+    #[inline]
     pub fn case<T: Display>(mut self, case: T) -> Self {
         self.set_case(case);
         self
     }
 
+    #[inline]
     pub fn set_case<T: Display>(&mut self, case: T) {
         self.name = conv_case(&self.name, case);
     }
 
     #[inline]
-    pub fn namespace(mut self, namespace: &'static str) -> Result<Self, XMLError> {
-        self.set_namespace(namespace)?;
-        Ok(self)
+    pub fn namespace<T: Display>(
+        mut self,
+        namespace: &T,
+        namespaces: &'b mut XMLNamespaces,
+    ) -> Self {
+        self.set_namespace(namespace, namespaces);
+        self
     }
 
     #[inline]
-    pub fn set_namespace(&mut self, namespace: &'static str) -> Result<(), XMLError> {
-        if let Some(ns) = XMLNamespaces::get(&namespace.to_string())? {
-            _ = self.namespace.insert(ns);
-        } else {
-            warn!("Namespace {namespace} not defined.");
-            return Err(XMLError::NamespaceNotFound(namespace.to_string()));
-        }
-        Ok(())
+    pub fn set_namespace<T: Display>(&mut self, namespace: &T, namespaces: &'b mut XMLNamespaces) {
+        let namespace = namespace.to_string();
+        match namespaces.get(&namespace) {
+            Some(ns) => {
+                let _ = self.namespace.insert(ns);
+            }
+            None => {}
+        };
     }
 
-    pub fn namespaces(&self) -> Vec<XMLNamespace> {
-        let mut ret = Vec::new();
-        if self.namespace.is_some() {
-            ret.push(self.namespace.clone().unwrap());
+    pub fn determine_namespaces(&self) -> XMLNamespaces {
+        let mut namespaces = XMLNamespaces::new();
+        if let Some(namespace) = self.namespace {
+            namespaces.insert(namespace.clone());
         }
 
         for datum in &self.data {
-            ret.append(&mut datum.namespaces())
+            datum.namespaces_recurse(&mut namespaces)
         }
 
-        ret.sort();
-        ret.dedup();
-        ret
+        namespaces
+    }
+
+    pub(crate) fn namespaces_recurse(&self, mut namespaces: &mut XMLNamespaces) {
+        if let Some(namespace) = self.namespace {
+            namespaces.insert(namespace.clone());
+        }
+
+        for datum in &self.data {
+            datum.namespaces_recurse(&mut namespaces)
+        }
     }
 
     #[inline]
-    pub fn data<T: IntoXML>(mut self, data: &[T]) -> Self {
+    pub fn data<T: IntoXML<'a> + 'b>(mut self, data: &'b [T]) -> Self {
         self.add_data(data);
         self
     }
 
     #[inline]
-    pub fn add_data<T: IntoXML>(&mut self, data: &[T]) {
+    pub fn add_data<T: IntoXML<'a> + 'b>(&mut self, data: &'b [T]) {
         self.data.extend_from_slice(
             data.iter()
                 .map(|d| d.to_xml())
@@ -117,50 +130,51 @@ impl XMLNode {
     }
 
     #[inline]
-    pub fn datum<T: IntoXML>(mut self, datum: T) -> Self {
+    pub fn datum<T: IntoXML<'a> + 'b>(mut self, datum: T) -> Self {
         self.add_datum(datum);
         self
     }
 
     #[inline]
-    pub fn add_datum<T: IntoXML>(&mut self, datum: T) {
+    pub fn add_datum<T: IntoXML<'a> + 'b>(&mut self, datum: T) {
         self.data.push(datum.to_xml())
     }
 
     #[inline]
-    pub fn node(mut self, node: XMLNode) -> Self {
+    pub fn node(mut self, node: XMLNode<'a>) -> Self {
         self.add_datum(XML::Node(node));
         self
     }
 
     #[inline]
-    pub fn add_node(&mut self, node: XMLNode) {
+    pub fn add_node(&mut self, node: XMLNode<'a>) {
         self.add_datum(XML::Node(node))
     }
 
     #[inline]
-    pub fn nodes(mut self, nodes: &[XMLNode]) -> Self {
+    pub fn nodes(mut self, nodes: &[XMLNode<'a>]) -> Self {
         self.add_nodes(nodes);
         self
     }
 
     #[inline]
-    pub fn add_nodes(&mut self, nodes: &[XMLNode]) {
+    pub fn add_nodes(&mut self, nodes: &[XMLNode<'a>]) {
         self.data.extend(nodes.iter().cloned().map(XML::Node))
     }
 
     #[inline]
-    pub fn text<T: Display>(mut self, text: &T) -> Self {
-        self.add_datum(text.to_string().to_xml());
+    pub fn text(mut self, text: &'b String) -> Self {
+        self.add_datum(text.to_xml());
         self
     }
 
     #[inline]
-    pub fn add_text<T: Display>(&mut self, text: &T) {
-        self.add_datum(text.to_string().to_xml())
+    pub fn add_text(&mut self, text: &'b String) {
+        self.add_datum(text.to_xml())
     }
 
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let ns_tag = self.name;
         let ns_tag = match &self.namespace {
             Some(ns) => format!("{}:{}", ns.alias, self.name),
             None => self.name.to_string(),
@@ -183,16 +197,21 @@ impl XMLNode {
             Ok(())
         }
     }
+
+    pub fn parse_string<T: Display>(_input: &T) -> Result<Self, XMLError> {
+        todo!()
+    }
 }
 
-impl IntoXML for XMLNode {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for XMLNode<'a> {
+    fn to_xml(&self) -> XML<'a> {
         XML::Node(self.to_owned())
     }
 }
 
-impl Display for XMLNode {
+impl Display for XMLNode<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let ns_tag = self.name;
         let ns_tag = match &self.namespace {
             Some(ns) => format!("{}:{}", ns.alias, self.name),
             None => self.name.to_string(),
@@ -204,12 +223,9 @@ impl Display for XMLNode {
             write!(f, r#" {}="{}""#, attribute.0, attribute.1)?;
         }
 
-        let namespaces = self.namespaces();
-
-        for namespace in namespaces {
-            if let Ok(Some(namespace)) = XMLNamespaces::get(&namespace.name) {
-                write!(f, r#" xmlns:{}="{}""#, namespace.alias, namespace.uri)?;
-            }
+        let namespaces = self.determine_namespaces();
+        for namespace in namespaces._inner.values() {
+            write!(f, r#" xmlns:{}="{}""#, namespace.alias, namespace.uri)?;
         }
 
         if self.data.is_empty() {

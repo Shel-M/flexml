@@ -1,11 +1,11 @@
 use crate::XML;
 
-pub trait IntoXML {
-    fn to_xml(&self) -> XML;
+pub trait IntoXML<'a> {
+    fn to_xml(&self) -> XML<'a>;
 }
 
-impl<T: IntoXML> IntoXML for Option<T> {
-    fn to_xml(&self) -> XML {
+impl<'a, T: IntoXML<'a>> IntoXML<'a> for Option<T> {
+    fn to_xml(&self) -> XML<'a> {
         match self {
             Some(v) => v.to_xml(),
             None => XML::None,
@@ -13,19 +13,14 @@ impl<T: IntoXML> IntoXML for Option<T> {
     }
 }
 
-impl<T: IntoXML> IntoXML for Vec<T> {
-    fn to_xml(&self) -> XML {
-        XML::new_untagged().data(
-            self.iter()
-                .map(|v| v.to_xml())
-                .collect::<Vec<XML>>()
-                .as_slice(),
-        )
-    }
-}
+// impl<'a, T: IntoXML<'a>> IntoXML<'a> for Vec<T> {
+//     fn to_xml(&self) -> XML<'a> {
+//         XML::new_untagged().data(self.clone())
+//     }
+// }
 
-impl IntoXML for bool {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for bool {
+    fn to_xml(&self) -> XML<'a> {
         match self {
             true => "true".to_xml(),
             false => "false".to_xml(),
@@ -33,74 +28,74 @@ impl IntoXML for bool {
     }
 }
 
-impl IntoXML for &str {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for &str {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for String {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for String {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for u8 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for u8 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for u16 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for u16 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for u32 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for u32 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for u64 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for u64 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for u128 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for u128 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for i8 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for i8 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for i16 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for i16 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for i32 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for i32 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for i64 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for i64 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }
 
-impl IntoXML for i128 {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for i128 {
+    fn to_xml(&self) -> XML<'a> {
         XML::Text(self.to_string())
     }
 }

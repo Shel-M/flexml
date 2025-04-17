@@ -1,18 +1,18 @@
-use crate::{IntoXML, XMLError, XMLNamespace};
+use crate::{IntoXML, XMLNamespaces};
 
 use crate::node::XMLNode;
 
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
-pub enum XML {
-    Container(Vec<XML>),
-    Node(XMLNode),
+pub enum XML<'a> {
+    Container(Vec<XML<'a>>),
+    Node(XMLNode<'a>),
     Text(String),
     None,
 }
 
-impl XML {
+impl<'a> XML<'a> {
     pub fn new<T: Display>(name: T) -> Self {
         XML::Node(XMLNode::new(name))
     }
@@ -80,45 +80,59 @@ impl XML {
     }
 
     #[inline]
-    pub fn namespace(mut self, namespace: &'static str) -> Result<Self, XMLError> {
-        self.set_namespace(namespace)?;
-        Ok(self)
+    pub fn namespace<T: Display>(
+        mut self,
+        namespace: &T,
+        namespaces: &'a mut XMLNamespaces,
+    ) -> Self {
+        self.set_namespace(namespace, namespaces);
+        self
     }
 
     #[inline]
-    pub fn set_namespace(&mut self, namespace: &'static str) -> Result<(), XMLError> {
+    pub fn set_namespace<T: Display>(&mut self, namespace: &T, namespaces: &'a mut XMLNamespaces) {
         match self {
-            Self::Node(ref mut node) => node.set_namespace(namespace)?,
-            Self::Container(ref mut nodes) => {
-                for node in nodes {
-                    node.set_namespace(namespace)?;
-                }
-            }
-            Self::Text(_) => return Err(XMLError::NamespaceOnText),
+            Self::Node(ref mut node) => node.set_namespace(namespace, namespaces),
+            Self::Container(_) => {} // Consider ' return Err(XMLError::NamespaceOnContainer '
+            Self::Text(_) => {}      // Consider ' return Err(XMLError::NamespaceOnText), '
             Self::None => (),
         }
-        Ok(())
     }
 
-    pub fn namespaces(&self) -> Vec<XMLNamespace> {
+    pub fn namespaces(&self) -> XMLNamespaces {
         match self {
-            XML::Node(node) => node.namespaces(),
-            XML::Container(nodes) => nodes
-                .iter()
-                .flat_map(|n| n.namespaces())
-                .collect::<Vec<XMLNamespace>>(),
-            _ => Vec::new(),
+            XML::Node(node) => node.determine_namespaces(),
+            XML::Container(nodes) => {
+                let mut namespaces = XMLNamespaces::new();
+                for node in nodes.iter() {
+                    node.namespaces_recurse(&mut namespaces);
+                }
+                namespaces
+            }
+            _ => XMLNamespaces::new(),
+        }
+    }
+
+    pub(crate) fn namespaces_recurse(&self, namespaces: &mut XMLNamespaces) {
+        match self {
+            XML::Node(node) => node.namespaces_recurse(namespaces),
+            XML::Container(nodes) => {
+                for node in nodes.iter() {
+                    node.namespaces_recurse(namespaces);
+                }
+            }
+            _ => {}
         }
     }
 
     #[inline]
-    pub fn data(mut self, data: &[XML]) -> Self {
+    pub fn data<T: IntoXML<'a>>(mut self, data: &'a [T]) -> Self {
         self.add_data(data);
         self
     }
 
     #[inline]
-    pub fn add_data<T: IntoXML>(&mut self, data: &[T]) {
+    pub fn add_data<T: IntoXML<'a>>(&mut self, data: &'a [T]) {
         match self {
             XML::Node(ref mut node) => node.add_data(data),
             XML::Container(ref mut nodes) => {
@@ -134,13 +148,13 @@ impl XML {
     }
 
     #[inline]
-    pub fn datum<T: IntoXML>(mut self, datum: T) -> Self {
+    pub fn datum<T: IntoXML<'a> + 'a>(mut self, datum: T) -> Self {
         self.add_datum(datum);
         self
     }
 
     #[inline]
-    pub fn add_datum<T: IntoXML>(&mut self, datum: T) {
+    pub fn add_datum<T: IntoXML<'a> + 'a>(&mut self, datum: T) {
         match self {
             XML::Node(ref mut node) => node.add_datum(datum),
             XML::Container(ref mut nodes) => nodes.push(datum.to_xml()),
@@ -153,24 +167,24 @@ impl XML {
     }
 
     #[inline]
-    pub fn node(mut self, node: XML) -> Self {
+    pub fn node(mut self, node: XML<'a>) -> Self {
         self.add_datum(node);
         self
     }
 
     #[inline]
-    pub fn add_node(&mut self, node: XML) {
+    pub fn add_node(&mut self, node: XML<'a>) {
         self.add_datum(node)
     }
 
     #[inline]
-    pub fn nodes(mut self, nodes: &[XML]) -> Self {
+    pub fn nodes(mut self, nodes: &'a [XML<'a>]) -> Self {
         self.add_nodes(nodes);
         self
     }
 
     #[inline]
-    pub fn add_nodes(&mut self, nodes: &[XML]) {
+    pub fn add_nodes(&mut self, nodes: &'a [XML<'a>]) {
         self.add_data(nodes)
     }
 
@@ -200,7 +214,7 @@ impl XML {
     }
 }
 
-impl Display for XML {
+impl Display for XML<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Text(s) => write!(f, "{s}"),
@@ -216,14 +230,14 @@ impl Display for XML {
     }
 }
 
-impl From<XMLNode> for XML {
-    fn from(value: XMLNode) -> Self {
+impl<'a> From<XMLNode<'a>> for XML<'a> {
+    fn from(value: XMLNode<'a>) -> Self {
         XML::Node(value)
     }
 }
 
-impl IntoXML for XML {
-    fn to_xml(&self) -> XML {
+impl<'a> IntoXML<'a> for XML<'a> {
+    fn to_xml(&self) -> XML<'a> {
         self.to_owned()
     }
 }

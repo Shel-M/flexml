@@ -50,6 +50,7 @@ struct Foo {
     // A case string may be passed into attributes. 
     // See [heck] for supported casing schemes.
     #[attribute("UpperCamelCase")]
+    #[namespace("Namespace1")] // Namespaces are supported on attributes
     attrib2: &'static str,
 
     #[unserialized]
@@ -85,7 +86,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:foo Attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
+        r#"<n:foo Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
         test_structure.to_xml().to_string()
     )
 }
@@ -97,6 +98,7 @@ Which is equivalent to this non-macro implementation
 use flexml::XML;
 use flexml::IntoXML;
 use flexml::XMLNamespaces;
+use flexml::XMLAttribute;
 
 struct Root {
     data1: Vec<Node>,
@@ -122,8 +124,8 @@ impl IntoXML for Root {
             .map(|n| n.to_xml()).collect();
 
         XML::new("root")
-            .attribute("attrib1", &self.attrib1)
-            .attribute("Attrib2", &self.attrib2)
+            .attribute(XMLAttribute::new("attrib1", &self.attrib1))
+            .attribute(XMLAttribute::new("Attrib2", &self.attrib2).namespace("Namespace1").expect("Failed to set doc namespace")) // Namespaces are supported on attributes
             .namespace("Namespace1").expect("Failed to set doc namespace")
             .nodes(&data1_nodes)
             .node(
@@ -174,7 +176,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

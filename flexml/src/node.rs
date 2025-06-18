@@ -1,6 +1,6 @@
-use indexmap::IndexMap;
 use log::warn;
 
+use crate::attribute::XMLAttribute;
 use crate::conv_case;
 use crate::{IntoXML, XMLError, XMLNamespace, XMLNamespaces, XML};
 
@@ -11,7 +11,7 @@ pub struct XMLNode {
     name: String,
     namespace: Option<XMLNamespace>,
 
-    attributes: IndexMap<&'static str, String>,
+    attributes: Vec<XMLAttribute>,
     data: Vec<XML>,
 }
 
@@ -21,31 +21,26 @@ impl XMLNode {
             name: name.to_string(),
             namespace: None,
 
-            attributes: IndexMap::new(),
+            attributes: Vec::new(),
             data: Vec::new(),
         }
     }
 
     #[inline]
-    pub fn attribute<T: Display>(
-        mut self,
-        attribute_name: &'static str,
-        attribute_value: T,
-    ) -> Self {
-        self.add_attribute(attribute_name, attribute_value);
+    pub fn attribute(mut self, attribute: XMLAttribute) -> Self {
+        self.add_attribute(attribute);
         self
     }
 
     #[inline]
-    pub fn add_attribute<T: Display>(&mut self, attribute_name: &'static str, attribute_value: T) {
-        if self.attributes.contains_key(&attribute_name) {
+    pub fn add_attribute(&mut self, attribute: XMLAttribute) {
+        if self.attributes.iter().any(|a| a.key == attribute.key) {
             warn!(
-                "Duplicate attribute {attribute_name} added to {}. Overwriting.",
-                self.name
+                "Duplicate attribute {} added to {}. Overwriting.",
+                attribute.key, self.name
             );
         }
-        self.attributes
-            .insert(attribute_name, attribute_value.to_string());
+        self.attributes.push(attribute);
     }
 
     #[inline]
@@ -169,7 +164,7 @@ impl XMLNode {
         write!(f, "<{ns_tag}")?;
 
         for attribute in &self.attributes {
-            write!(f, r#" {}="{}""#, attribute.0, attribute.1)?;
+            write!(f, r#" {}="{}""#, attribute.key, attribute.value)?;
         }
 
         if self.data.is_empty() {
@@ -201,7 +196,11 @@ impl Display for XMLNode {
         write!(f, "<{ns_tag}")?;
 
         for attribute in &self.attributes {
-            write!(f, r#" {}="{}""#, attribute.0, attribute.1)?;
+            let ns_tag = match &attribute.namespace {
+                Some(ns) => format!("{}:{}", ns.alias, attribute.key),
+                None => attribute.key.to_string(),
+            };
+            write!(f, r#" {ns_tag}="{}""#, attribute.value)?;
         }
 
         let namespaces = self.namespaces();

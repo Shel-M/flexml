@@ -1,3 +1,4 @@
+use crate::attribute::XMLAttribute;
 use crate::{IntoXML, XMLError, XMLNamespace};
 
 use crate::node::XMLNode;
@@ -22,23 +23,19 @@ impl XML {
     }
 
     #[inline]
-    pub fn attribute<T: Display>(
-        mut self,
-        attribute_name: &'static str,
-        attribute_value: T,
-    ) -> Self {
-        self.add_attribute(attribute_name, attribute_value);
+    pub fn attribute(mut self, attribute: XMLAttribute) -> Self {
+        self.add_attribute(attribute);
         self
     }
 
     #[inline]
-    pub fn add_attribute<T: Display>(&mut self, attribute_name: &'static str, attribute_value: T) {
+    pub fn add_attribute(&mut self, attribute: XMLAttribute) {
         match self {
-            XML::Node(ref mut node) => node.add_attribute(attribute_name, attribute_value),
+            XML::Node(ref mut node) => node.add_attribute(attribute),
             XML::Container(ref mut nodes) => {
                 for node in nodes {
                     if let XML::Node(node) = node {
-                        node.add_attribute(attribute_name, attribute_value.to_string())
+                        node.add_attribute(attribute.clone())
                     }
                 }
             }

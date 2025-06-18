@@ -17,6 +17,7 @@ struct ComplexStructRoot {
     attrib1: String,
     #[attribute]
     #[case("UpperCamelCase")]
+    #[namespace("Namespace1")]
     attrib2: &'static str,
 
     #[unserialized]
@@ -67,7 +68,7 @@ fn test_complex_struct() {
     print!("{}", test_structure.unserialized_member);
 
     assert_eq!(
-        r#"<n:root Attrib1="Attribute_value" Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><node>First node, first datapoint</node><n:Node>String mixed with <Node>foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><node>First node, first datapoint</node><n:Node>String mixed with <Node>foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

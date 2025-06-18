@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{DataStruct, Ident, Index, Type, TypePath};
 
 use crate::{conv_case, type_is_vec, DeriveAttributes, XMLAttributes};
@@ -76,8 +76,15 @@ impl StructHandler {
                 } else {
                     struct_field.name.clone()
                 };
+
+                let namespace_stream = struct_field.namespace.map(|ns| {
+                    quote! {
+                        .namespace(#ns).expect("Failed to set node namespace.")
+                    }
+                });
+
                 field_token_streams.attribute_fields.push(quote! {
-                    .attribute(#field_str, self. #name .to_string())
+                    .attribute(flexml::XMLAttribute::new(#field_str, self. #name .to_string()) #namespace_stream)
                 })
             } else {
                 let alias = if let Some(alias) = struct_field.alias {

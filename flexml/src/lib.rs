@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 
+mod attribute;
 mod data;
 mod into_xml;
 mod namespace;
 mod node;
 
+pub use attribute::*;
 pub use data::*;
 pub use into_xml::*;
 pub use namespace::*;

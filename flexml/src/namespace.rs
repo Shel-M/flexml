@@ -77,6 +77,7 @@ impl XMLNamespaces {
             alias,
             name: namespace,
             uri,
+            collection_index: 0,
         };
 
         ns.insert(namespace.name.clone(), namespace);
@@ -141,4 +142,5 @@ pub struct XMLNamespace {
     pub alias: String,
     pub name: String,
     pub uri: String,
+    pub(crate) collection_index: usize,
 }

@@ -7,26 +7,55 @@ use crate::{IntoXML, XMLError, XMLNamespace, XMLNamespaces, XML};
 use std::fmt::Display;
 
 #[derive(Debug, Clone)]
-pub struct XMLNode {
-    name: String,
-    namespace: Option<XMLNamespace>,
+pub(crate) enum NodeType {
+    Document,
+    Element,
+    Attribute,
+}
 
-    attributes: IndexMap<&'static str, String>,
-    data: Vec<XML>,
+#[derive(Debug, Clone)]
+pub(crate) enum Namespace {
+    Matched(usize),
+    Key(String),
+    None,
+}
+
+#[derive(Debug, Clone)]
+pub struct XMLNode {
+    node_type: NodeType,
+
+    name: String,
+    namespace: Namespace,
+
+    attributes: Vec<usize>,
+    data: Vec<usize>,
 }
 
 impl XMLNode {
     pub fn new<T: Display>(name: T) -> Self {
         Self {
-            name: name.to_string(),
-            namespace: None,
+            node_type: NodeType::Element,
 
-            attributes: IndexMap::new(),
+            name: name.to_string(),
+            namespace: Namespace::None,
+
+            attributes: Vec::new(),
             data: Vec::new(),
         }
     }
 
-    #[inline]
+    pub(crate) fn new_typed<T: Display>(name: T, node_type: NodeType) -> Self {
+        Self {
+            node_type,
+
+            name: name.to_string(),
+            namespace: Namespace::None,
+
+            attributes: Vec::new(),
+            data: Vec::new(),
+        }
+    }
+
     pub fn attribute<T: Display>(
         mut self,
         attribute_name: &'static str,
@@ -36,7 +65,6 @@ impl XMLNode {
         self
     }
 
-    #[inline]
     pub fn add_attribute<T: Display>(&mut self, attribute_name: &'static str, attribute_value: T) {
         if self.attributes.contains_key(&attribute_name) {
             warn!(
@@ -48,13 +76,11 @@ impl XMLNode {
             .insert(attribute_name, attribute_value.to_string());
     }
 
-    #[inline]
     pub fn name<T: Display>(mut self, name: T) -> Self {
         self.set_name(name);
         self
     }
 
-    #[inline]
     pub fn set_name<T: Display>(&mut self, name: T) {
         self.name = name.to_string()
     }

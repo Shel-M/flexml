@@ -4,6 +4,7 @@ mod data;
 mod into_xml;
 mod namespace;
 mod node;
+pub mod xml;
 
 pub use data::*;
 pub use into_xml::*;

@@ -90,6 +90,12 @@ impl XMLNode {
             ret.append(&mut datum.namespaces())
         }
 
+        for attrib in &self.attributes {
+            if let Some(ns) = &attrib.namespace {
+                ret.push(ns.clone())
+            }
+        }
+
         ret.sort();
         ret.dedup();
         ret

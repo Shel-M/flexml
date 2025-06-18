@@ -84,7 +84,7 @@ impl StructHandler {
                 });
 
                 field_token_streams.attribute_fields.push(quote! {
-                    .attribute(flexml::XMLAttribute::new(#field_str, self. #name .to_string()) #namespace_stream)
+                    .attribute(flexml::XMLAttribute::new(#field_str, &self. #name) #namespace_stream)
                 })
             } else {
                 let alias = if let Some(alias) = struct_field.alias {

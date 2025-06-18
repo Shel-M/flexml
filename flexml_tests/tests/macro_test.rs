@@ -1,7 +1,7 @@
 use flexml::macros::ToXML;
-use flexml::{IntoXML, XML};
+use flexml::{IntoXML, XMLAttribute, XML};
 
-#[derive(ToXML)]
+#[derive(ToXML, Debug)]
 #[name("root")] // To manually name
 // #[case("lowerCamelCase")] // To just change the rendered case scheme
 #[namespaces(("Namespace1", "https://namespace1.com/namespace"), ("Namespace2", "https://namespace2.com/namespace"))]
@@ -24,11 +24,16 @@ struct ComplexStructRoot {
     unserialized_member: String,
 }
 
-#[derive(ToXML)]
+#[derive(ToXML, Debug)]
+#[namespaces(("AttributeNs", "https://attribute.com/namespace"))]
 struct Node {
     data1: String,
     #[with(prepend_foo)]
     data2: Vec<Node>,
+    #[attribute]
+    #[case("UpperCamelCase")]
+    #[namespace("AttributeNs")]
+    attrib: &'static str,
 }
 
 impl Node {
@@ -43,6 +48,11 @@ impl Node {
                     .collect::<Vec<flexml::XML>>()
                     .as_slice(),
             )
+            .attribute(
+                XMLAttribute::new(&"Attrib", &self.attrib)
+                    .namespace("AttributeNs")
+                    .expect("Unable to add namespace"),
+            )
     }
 }
 
@@ -52,23 +62,27 @@ fn test_complex_struct() {
         data1: vec![Node {
             data1: "First node, first datapoint".to_string(),
             data2: vec![],
+            attrib: "Attribute 0",
         }],
         data2: Node {
             data1: String::from("String mixed with "),
             data2: vec![Node {
                 data1: "Second node, sub-datapoint".to_string(),
                 data2: vec![],
+                attrib: "",
             }],
+            attrib: "Attribute 1",
         },
         attrib1: "Attribute_value".to_string(),
         attrib2: "Attribute_value_2",
         unserialized_member: "Unserialized".to_string(),
     };
 
+    println!("{:#?}", test_structure.to_xml());
     print!("{}", test_structure.unserialized_member);
 
     assert_eq!(
-        r#"<n:root Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><node>First node, first datapoint</node><n:Node>String mixed with <Node>foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:a="https://attribute.com/namespace" xmlns:n="https://namespace1.com/namespace"><node a:Attrib="Attribute 0">First node, first datapoint</node><n:Node a:Attrib="Attribute 1">String mixed with <Node a:Attrib="">foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

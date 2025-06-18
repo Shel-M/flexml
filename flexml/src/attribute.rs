@@ -12,7 +12,7 @@ pub struct XMLAttribute {
 }
 
 impl XMLAttribute {
-    pub fn new<T: Display, V: Display>(key: T, value: V) -> Self {
+    pub fn new<T: Display, V: Display>(key: T, value: &V) -> Self {
         Self {
             key: key.to_string(),
             value: value.to_string(),

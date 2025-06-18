@@ -119,13 +119,16 @@ impl IntoXML for Root {
         XMLNamespaces::insert("Namespace2",
             "https://namespace2.com/namespace")
             .expect("failed to insert namespace");
+        XMLNamespaces::insert("AttributeNS",
+            "https://attribute.com/namespace")
+            .expect("failed to insert namespace");
 
         let data1_nodes: Vec<XML> = self.data1.iter()
             .map(|n| n.to_xml()).collect();
 
         XML::new("root")
             .attribute(XMLAttribute::new("attrib1", &self.attrib1))
-            .attribute(XMLAttribute::new("Attrib2", &self.attrib2).namespace("Namespace1").expect("Failed to set doc namespace")) // Namespaces are supported on attributes
+            .attribute(XMLAttribute::new("Attrib2", &self.attrib2).namespace("AttributeNs").expect("Failed to set doc namespace")) // Namespaces are supported on attributes
             .namespace("Namespace1").expect("Failed to set doc namespace")
             .nodes(&data1_nodes)
             .node(
@@ -176,7 +179,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<n:root attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:a="https://attribute.org/namespace" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

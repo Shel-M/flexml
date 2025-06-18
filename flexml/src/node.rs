@@ -164,7 +164,11 @@ impl XMLNode {
         write!(f, "<{ns_tag}")?;
 
         for attribute in &self.attributes {
-            write!(f, r#" {}="{}""#, attribute.key, attribute.value)?;
+            let ns_tag = match &attribute.namespace {
+                Some(ns) => format!("{}:{}", ns.alias, attribute.key),
+                None => attribute.key.to_string(),
+            };
+            write!(f, r#" {ns_tag}="{}""#, attribute.value)?;
         }
 
         if self.data.is_empty() {

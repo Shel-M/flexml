@@ -5,7 +5,7 @@ use syn::{DataEnum, Fields, FieldsNamed, FieldsUnnamed, Ident};
 use crate::{conv_case, DeriveAttributes, XMLAttributes};
 
 #[derive(Debug)]
-pub(crate) struct EnumHandler {
+pub struct EnumHandler {
     pub variant_tokens: Vec<TokenStream>,
 }
 
@@ -14,7 +14,7 @@ impl EnumHandler {
         data_enum: &DataEnum,
         xml_attributes: &XMLAttributes,
     ) -> TokenStream {
-        let xml_enum_variants = EnumHandler::process_fields(data_enum, xml_attributes);
+        let xml_enum_variants = Self::process_fields(data_enum, xml_attributes);
 
         let node_tag = xml_attributes.get_node_tag();
         if data_enum.variants.is_empty() {
@@ -51,36 +51,37 @@ impl EnumHandler {
             let mut variant = EnumVariant::from(DeriveAttributes::from(&xml_variant.attrs));
             variant.untagged = xml_attributes.untagged;
             variant.name = Some(xml_variant.ident.clone());
+
             if variant.case.is_none() {
-                variant.case = xml_attributes.case_all.clone();
+                variant.case.clone_from(&xml_attributes.case_all);
             }
 
             if variant.alias.is_empty() {
                 variant.alias = xml_variant.ident.clone().to_string();
                 if let Some(ref case) = variant.case {
-                    variant.alias = conv_case(variant.alias, case)
+                    variant.alias = conv_case(variant.alias, case);
                 }
             }
 
             let field_tokens = match &xml_variant.fields {
                 syn::Fields::Named(fields_named) => {
-                    variant.named_fields_to_tokens(fields_named, &variant.case_all)
+                    variant.named_fields_to_tokens(fields_named, variant.case_all.as_ref())
                 }
                 syn::Fields::Unnamed(fields_unnamed) => {
-                    variant.unnamed_fields_to_tokens(fields_unnamed, &variant.case_all)
+                    variant.unnamed_fields_to_tokens(fields_unnamed, variant.case_all.as_ref())
                 }
                 syn::Fields::Unit => variant.unit_fields_to_tokens(xml_attributes),
             };
 
-            variant_tokens.push(field_tokens)
+            variant_tokens.push(field_tokens);
         }
 
-        EnumHandler { variant_tokens }
+        Self { variant_tokens }
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct EnumVariant {
+pub struct EnumVariant {
     alias: String,
     case: Option<String>,
     case_all: Option<String>,
@@ -94,31 +95,34 @@ impl EnumVariant {
     fn named_fields_to_tokens(
         &self,
         fields: &FieldsNamed,
-        case_all: &Option<String>,
+        case_all: Option<&String>,
     ) -> TokenStream {
         let fields = std::convert::Into::<Fields>::into(fields.clone());
 
         let variant_name = &self.name;
-        let conv_call = match &self.with {
-            Some(ref with) => quote! {.#with()},
-            None => quote! {.to_xml()},
-        };
+        let conv_call = self
+            .with
+            .as_ref()
+            .map_or_else(|| quote! {.to_xml()}, |with| quote! {.#with()});
 
         let mut field_names = Vec::new();
         let mut field_tokens = Vec::new();
         for field in fields {
-            let field_name = field.ident.as_ref().unwrap();
+            let field_name = field
+                .ident
+                .as_ref()
+                .expect("Field identifier is None - impossible case");
             field_names.push(field_name.clone());
 
             let mut field_attributes = DeriveAttributes::from(&field.attrs);
             if field_attributes.case.is_none() {
-                field_attributes.case = case_all.clone();
+                field_attributes.case = case_all.cloned();
             }
 
             let alias = match (field_attributes.alias, field_attributes.case) {
                 (Some(alias), _) => alias,
                 (_, Some(ref case)) => conv_case(field_name, case),
-                _ => format! {"{field_name}"},
+                _ => format!("{field_name}"),
             };
 
             let namespace_stream = field_attributes.namespace.map(|ns| {
@@ -152,7 +156,7 @@ impl EnumVariant {
     fn unnamed_fields_to_tokens(
         &self,
         fields: &FieldsUnnamed,
-        case_all: &Option<String>,
+        case_all: Option<&String>,
     ) -> TokenStream {
         let fields = std::convert::Into::<Fields>::into(fields.clone());
 
@@ -169,22 +173,23 @@ impl EnumVariant {
         for (i, field) in fields.iter().enumerate() {
             let mut field_attributes = DeriveAttributes::from(&field.attrs);
             if field_attributes.case.is_none() {
-                field_attributes.case = case_all.clone();
+                field_attributes.case = case_all.cloned();
             }
             let n = format_ident!("n{i}");
 
-            let conv_call = match &field_attributes.with {
-                Some(ref with) => quote! {.#with()},
-                None => quote! {.to_xml()},
-            };
+            let conv_call = self
+                .with
+                .as_ref()
+                .map_or_else(|| quote! {.to_xml()}, |with| quote! {.#with()});
             let namespace_stream = field_attributes.namespace.map(|ns| {
                 quote! {
                     .namespace(#ns).expect("Failed to set node namespace.")
                 }
             });
-            field_tokens.push(quote! {#n #conv_call #namespace_stream})
+            field_tokens.push(quote! {#n #conv_call #namespace_stream});
         }
 
+        #[allow(clippy::option_if_let_else)] // I think the match reads better here
         match &self.with {
             Some(ref with) => quote! {Self::#variant_name(#(#matching,)*) => self.#with(),},
             None => {
@@ -206,10 +211,10 @@ impl EnumVariant {
 
     fn unit_fields_to_tokens(&self, xml_attributes: &XMLAttributes) -> TokenStream {
         let variant_name = &self.name;
-        let conv_call = match &self.with {
-            Some(ref with) => quote! {.#with()},
-            None => quote! {.to_xml()},
-        };
+        let conv_call = self
+            .with
+            .as_ref()
+            .map_or_else(|| quote! {.to_xml()}, |with| quote! {.#with()});
 
         let unit_repr = &xml_attributes.unit_repr;
         if self.untagged {
@@ -232,12 +237,11 @@ impl EnumVariant {
 
 impl From<DeriveAttributes> for EnumVariant {
     fn from(value: DeriveAttributes) -> Self {
-        if value.untagged {
-            panic!(
-                "Incorrect placement of #[untagged] attribute, \
-                it should be on the containing enum."
-            )
-        }
+        assert!(
+            !value.untagged,
+            "Incorrect placement of #[untagged] attribute, \
+            it should be on the containing enum."
+        );
         Self {
             alias: value.alias.unwrap_or_default(),
             case: value.case,

@@ -5,7 +5,7 @@ use syn::{DataStruct, Ident, Index, Type, TypePath};
 use crate::{conv_case, type_is_vec, DeriveAttributes, XMLAttributes};
 
 #[derive(Default)]
-pub(crate) struct StructHandler {
+pub struct StructHandler {
     pub attribute_fields: Vec<TokenStream>,
     pub node_fields: Vec<TokenStream>,
 }
@@ -15,7 +15,7 @@ impl StructHandler {
         data_struct: &DataStruct,
         xml_attributes: &XMLAttributes,
     ) -> TokenStream {
-        let mut xml_field_attributes = StructHandler::process_fields(data_struct, xml_attributes);
+        let mut xml_field_attributes = Self::process_fields(data_struct, xml_attributes);
 
         let mut attr_tokens = Vec::new();
         let mut node_tokens = Vec::new();
@@ -50,23 +50,22 @@ impl StructHandler {
                 continue;
             }
             if struct_field.case.is_none() {
-                struct_field.case = xml_attributes.case_all.clone();
+                struct_field.case.clone_from(&xml_attributes.case_all);
             }
 
             struct_field.name = xml_field
                 .ident
                 .clone()
-                .map_or(i.to_string(), |s| s.to_string());
+                .map_or_else(|| i.to_string(), |s| s.to_string());
 
-            let name = if let Some(ref ident) = xml_field.ident {
-                ident.into_token_stream()
-            } else {
-                Index::from(i).into_token_stream()
-            };
+            let name = xml_field.ident.as_ref().map_or_else(
+                || Index::from(i).into_token_stream(),
+                ToTokens::into_token_stream,
+            );
 
             if let Type::Path(path) = xml_field.ty.clone() {
                 struct_field.ty = Some(path);
-            };
+            }
 
             if struct_field.attribute {
                 let field_str = match (struct_field.alias, struct_field.case) {
@@ -83,22 +82,25 @@ impl StructHandler {
 
                 field_token_streams.attribute_fields.push(quote! {
                     .attribute(flexml::XMLAttribute::new(#field_str, &self. #name) #namespace_stream)
-                })
+                });
             } else {
-                let alias = if let Some(alias) = struct_field.alias {
-                    quote! {
-                        .name(#alias)
-                    }
-                } else {
-                    quote! {}
-                };
-                let node_case = if let Some(case) = struct_field.case {
-                    quote! {
-                        .case(#case)
-                    }
-                } else {
-                    quote! {}
-                };
+                let alias = struct_field.alias.map_or_else(
+                    || quote! {},
+                    |alias| {
+                        quote! {
+                            .name(#alias)
+                        }
+                    },
+                );
+
+                let node_case = struct_field.case.map_or_else(
+                    || quote! {},
+                    |case| {
+                        quote! {
+                            .case(#case)
+                        }
+                    },
+                );
 
                 let namespace_stream = struct_field.namespace.map(|ns| {
                     quote! {
@@ -107,7 +109,7 @@ impl StructHandler {
                 });
                 let cast_stream = struct_field
                     .with
-                    .map_or(quote! {.to_xml()}, |with| quote! {.#with()});
+                    .map_or_else(|| quote! {.to_xml()}, |with| quote! {.#with()});
 
                 let xml_type = &struct_field.ty.unwrap_or_else(|| {
                     panic!("Could not determine type of field {}", struct_field.name)
@@ -148,7 +150,7 @@ struct StructField {
 
 impl From<DeriveAttributes> for StructField {
     fn from(value: DeriveAttributes) -> Self {
-        StructField {
+        Self {
             alias: value.alias,
             attribute: value.attribute,
             case: value.case,

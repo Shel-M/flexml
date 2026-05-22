@@ -3,7 +3,7 @@ use syn::{punctuated::Punctuated, Attribute, Ident, Lit, LitStr, Token};
 use crate::NamespaceTuple;
 
 #[derive(Debug, Default)]
-pub(crate) struct DeriveAttributes {
+pub struct DeriveAttributes {
     pub attribute: bool,
     pub case: Option<String>,
     pub case_all: Option<String>,
@@ -16,12 +16,16 @@ pub(crate) struct DeriveAttributes {
     pub untagged: bool,
 }
 
+#[allow(clippy::fallible_impl_from)] // Panics in macros show as editor errors
 impl From<&Vec<Attribute>> for DeriveAttributes {
     fn from(attrs: &Vec<Attribute>) -> Self {
-        let mut ret = DeriveAttributes::default();
+        let mut ret = Self::default();
 
-        for attr in attrs.iter() {
-            let id = attr.path().get_ident().map(|i| i.to_string());
+        for attr in attrs {
+            let id = attr
+                .path()
+                .get_ident()
+                .map(std::string::ToString::to_string);
             if let Some(id) = id {
                 match id.as_str() {
                     "attribute" => ret.attribute = true,
@@ -30,36 +34,34 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
                             Ok(s) => {
                                 ret.case = Some(s.value());
                             }
-                            Err(_) => {
-                                panic!("Could not parse #[case] argument, expected string literal")
+                            Err(e) => {
+                                panic!("Could not parse #[case] argument, expected string literal - {e}")
                             }
-                        };
+                        }
                     }
-                    "case_all" => {
-                        match attr.parse_args::<LitStr>() {
-                            Ok(s) => {
-                                ret.case_all = Some(s.value());
-                            }
-                            Err(_) => {
-                                panic!(
-                                    "Could not parse #[case_all] argument, expected string literal"
+                    "case_all" => match attr.parse_args::<LitStr>() {
+                        Ok(s) => {
+                            ret.case_all = Some(s.value());
+                        }
+                        Err(e) => {
+                            panic!(
+                                    "Could not parse #[case_all] argument, expected string literal - {e}"
                                 )
-                            }
-                        };
-                    }
+                        }
+                    },
                     "name" => {
                         ret.alias = Some(
                             attr.parse_args::<LitStr>()
                                 .expect("Expected string literal in namespace attribute")
                                 .value(),
-                        )
+                        );
                     }
                     "namespace" => {
                         ret.namespace = Some(
                             attr.parse_args::<LitStr>()
                                 .expect("Expected string literal in namespace attribute")
                                 .value(),
-                        )
+                        );
                     }
                     "namespaces" => {
                         let namespaces: Punctuated<NamespaceTuple, Token![,]> = attr
@@ -72,11 +74,11 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
                         ret.with = Some(
                             attr.parse_args::<Ident>()
                                 .expect("Expected identifier in with attribute"),
-                        )
+                        );
                     }
                     "unit_repr" => {
                         ret.unit_repr =
-                            Some(attr.parse_args::<Lit>().expect("Expected literal value"))
+                            Some(attr.parse_args::<Lit>().expect("Expected literal value"));
                     }
                     "unserialized" => {
                         ret.unserialized = true;

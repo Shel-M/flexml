@@ -33,15 +33,13 @@ pub enum XMLError {
 
 impl Display for XMLError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        type S = XMLError;
-
         match self {
-            S::NamespaceNotFound(v) => write!(
+            Self::NamespaceNotFound(v) => write!(
                 f,
                 "XMLError::NamespaceNotFound - Namespace \"{v}\" not defined"
             ),
-            S::Other(v) => write!(f, "XMLError::Other \"{v}\""),
-            XMLError::NamespaceOnText => write!(
+            Self::Other(v) => write!(f, "XMLError::Other \"{v}\""),
+            Self::NamespaceOnText => write!(
                 f,
                 "XMLError::NamespaceOnText \"Cannot set namespace on text node.\""
             ),

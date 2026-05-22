@@ -6,10 +6,7 @@ pub trait IntoXML {
 
 impl<T: IntoXML> IntoXML for Option<T> {
     fn to_xml(&self) -> XML {
-        match self {
-            Some(v) => v.to_xml(),
-            None => XML::None,
-        }
+        self.as_ref().map_or(XML::None, IntoXML::to_xml)
     }
 }
 
@@ -17,7 +14,7 @@ impl<T: IntoXML> IntoXML for Vec<T> {
     fn to_xml(&self) -> XML {
         XML::new_untagged().data(
             self.iter()
-                .map(|v| v.to_xml())
+                .map(IntoXML::to_xml)
                 .collect::<Vec<XML>>()
                 .as_slice(),
         )
@@ -41,7 +38,7 @@ impl IntoXML for &str {
 
 impl IntoXML for String {
     fn to_xml(&self) -> XML {
-        XML::Text(self.to_string())
+        XML::Text(self.clone())
     }
 }
 

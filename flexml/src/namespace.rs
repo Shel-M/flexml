@@ -1,16 +1,15 @@
 use std::{
     collections::HashMap,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use log::{error, warn};
-use once_cell::sync::Lazy;
 
 use crate::XMLError;
 
 type NamespaceMap = HashMap<String, XMLNamespace>;
 
-static NAMESPACES: Lazy<RwLock<NamespaceMap>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static NAMESPACES: LazyLock<RwLock<NamespaceMap>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn read_global() -> Result<RwLockReadGuard<'static, NamespaceMap>, XMLError> {
     match NAMESPACES.read() {
@@ -36,11 +35,15 @@ fn write_global() -> Result<RwLockWriteGuard<'static, NamespaceMap>, XMLError> {
 pub struct XMLNamespaces;
 
 impl XMLNamespaces {
+    /// # Errors
+    /// Will return an error if the global lock is poisoned.
     pub fn hashmap() -> Result<NamespaceMap, XMLError> {
         let ns = read_global()?;
         Ok(ns.clone())
     }
 
+    /// # Errors
+    /// Will return an error if the global lock is poisoned.
     pub fn get(namespace: &String) -> Result<Option<XMLNamespace>, XMLError> {
         let namespaces = read_global()?;
 
@@ -49,10 +52,13 @@ impl XMLNamespaces {
                 return Ok(Some(value_namespace.clone()));
             }
         }
+        drop(namespaces);
 
         Ok(None)
     }
 
+    /// # Errors
+    /// Will return an error if the global lock is poisoned.
     pub fn insert(namespace: &'static str, uri: &'static str) -> Result<(), XMLError> {
         let mut ns = write_global()?;
         let namespace = namespace.to_string();
@@ -80,6 +86,8 @@ impl XMLNamespaces {
         };
 
         ns.insert(namespace.name.clone(), namespace);
+        drop(ns);
+
         Ok(())
     }
 }

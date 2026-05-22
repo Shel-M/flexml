@@ -31,10 +31,12 @@ impl Parse for NamespaceTuple {
         let ns: LitStr = content.parse()?;
         let _comma: Token![,] = content.parse()?;
         let uri: LitStr = content.parse()?;
-        Ok(NamespaceTuple::Ns { ns, uri })
+        Ok(Self::Ns { ns, uri })
     }
 }
 
+/// # Panics
+/// Will panic if met with an unhandled data type. Supported types are Struct and Enum.
 #[proc_macro_derive(
     ToXML,
     attributes(
@@ -64,7 +66,7 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
             StructHandler::expand_tokens(data_struct, &xml_attributes)
         }
         syn::Data::Enum(data_enum) => EnumHandler::expand_tokens(data_enum, &xml_attributes),
-        _ => panic!("Not implemented"),
+        syn::Data::Union(_) => panic!("Not implemented"),
     };
     proc_macro::TokenStream::from(quote! {
         impl flexml::IntoXML for #name {
@@ -98,22 +100,23 @@ impl XMLAttributes {
 
     fn get_node_tag(&self) -> String {
         match (&self.alias, &self.case) {
-            (Some(alias), _) => alias.to_string(),
+            (Some(alias), _) => alias.clone(),
             (None, Some(case)) => conv_case(&self.name, case),
-            _ => self.name.to_string(),
+            _ => self.name.clone(),
         }
     }
 }
 
+#[allow(clippy::fallible_impl_from)] // Panics in macros show as editor errors
+#[allow(clippy::assertions_on_constants)] // Can't use const in the From impl, I don't think it's cleaner to split that bit into a different function.
 impl From<DeriveAttributes> for XMLAttributes {
     fn from(value: DeriveAttributes) -> Self {
         if value.with.is_some() {
-            if cfg!(test) {
-                panic!(
-                    "`with` attribute is unsupported on container types \n {:#?}",
-                    value.with
-                )
-            }
+            assert!(
+                !cfg!(test),
+                "`with` attribute is unsupported on container types \n {:#?}",
+                value.with
+            );
             panic!("`with` attribute is unsupported on container types")
         }
 
@@ -141,11 +144,9 @@ impl From<DeriveAttributes> for XMLAttributes {
 fn type_is_vec(typepath: &TypePath) -> bool {
     let segments = &typepath.path.segments;
 
-    if let Some(last_seg) = segments.last() {
-        last_seg.ident == "Vec"
-    } else {
-        false
-    }
+    segments
+        .last()
+        .is_some_and(|last_seg| last_seg.ident == "Vec")
 }
 
 fn conv_case<T: Display, V: Display>(input: T, case: V) -> String {

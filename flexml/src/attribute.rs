@@ -20,12 +20,17 @@ impl XMLAttribute {
         }
     }
 
+    /// # Errors
+    /// See [`set_namespace`]
     #[inline]
     pub fn namespace(mut self, namespace: &'static str) -> Result<Self, XMLError> {
         self.set_namespace(namespace)?;
         Ok(self)
     }
 
+    /// # Errors
+    /// Returns an error if the namespace alias passed in is not found in the global `XMLNamespaces`
+    /// collection.
     #[inline]
     pub fn set_namespace(&mut self, namespace: &'static str) -> Result<(), XMLError> {
         if let Some(ns) = XMLNamespaces::get(&namespace.to_string())? {

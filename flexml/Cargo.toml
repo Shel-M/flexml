@@ -5,14 +5,8 @@ edition = "2021"
 description = "Quickly and easily define namespaced XML serialization"
 license = "MIT"
 
-[lints.rust]
-unsafe_code = "forbid"
-
-[lints.clippy]
-enum_glob_use = "deny"
-pedantic = "deny" 
-nursery = "deny"
-unwrap_used = "deny"
+[lints]
+workspace = true
 
 [features]
 macro = ["flexml_macro"]

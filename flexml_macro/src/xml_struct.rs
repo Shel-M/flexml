@@ -58,8 +58,8 @@ impl StructHandler {
                 .clone()
                 .map_or(i.to_string(), |s| s.to_string());
 
-            let name = if xml_field.ident.is_some() {
-                xml_field.ident.as_ref().unwrap().into_token_stream()
+            let name = if let Some(ref ident) = xml_field.ident {
+                ident.into_token_stream()
             } else {
                 Index::from(i).into_token_stream()
             };
@@ -69,12 +69,10 @@ impl StructHandler {
             };
 
             if struct_field.attribute {
-                let field_str = if struct_field.alias.is_some() {
-                    struct_field.alias.unwrap()
-                } else if struct_field.case.is_some() {
-                    conv_case(&struct_field.name, struct_field.case.unwrap())
-                } else {
-                    struct_field.name.clone()
+                let field_str = match (struct_field.alias, struct_field.case) {
+                    (Some(alias), _) => alias,
+                    (None, Some(case)) => conv_case(&struct_field.name, case),
+                    _ => struct_field.name.clone(),
                 };
 
                 let namespace_stream = struct_field.namespace.map(|ns| {

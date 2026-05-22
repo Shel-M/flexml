@@ -57,8 +57,8 @@ impl EnumHandler {
 
             if variant.alias.is_empty() {
                 variant.alias = xml_variant.ident.clone().to_string();
-                if variant.case.is_some() {
-                    variant.alias = conv_case(variant.alias, variant.case.as_ref().unwrap())
+                if let Some(ref case) = variant.case {
+                    variant.alias = conv_case(variant.alias, case)
                 }
             }
 
@@ -115,12 +115,10 @@ impl EnumVariant {
                 field_attributes.case = case_all.clone();
             }
 
-            let alias = if field_attributes.alias.is_some() {
-                field_attributes.alias.unwrap()
-            } else if field_attributes.case.is_some() {
-                conv_case(field_name, field_attributes.case.as_ref().unwrap())
-            } else {
-                format! {"{field_name}"}
+            let alias = match (field_attributes.alias, field_attributes.case) {
+                (Some(alias), _) => alias,
+                (_, Some(ref case)) => conv_case(field_name, case),
+                _ => format! {"{field_name}"},
             };
 
             let namespace_stream = field_attributes.namespace.map(|ns| {

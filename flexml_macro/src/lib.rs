@@ -97,12 +97,10 @@ impl XMLAttributes {
     }
 
     fn get_node_tag(&self) -> String {
-        if self.alias.is_some() {
-            self.alias.as_ref().unwrap().to_string()
-        } else if self.case.is_some() {
-            conv_case(&self.name, self.case.as_ref().unwrap())
-        } else {
-            self.name.to_string()
+        match (&self.alias, &self.case) {
+            (Some(alias), _) => alias.to_string(),
+            (None, Some(case)) => conv_case(&self.name, case),
+            _ => self.name.to_string(),
         }
     }
 }

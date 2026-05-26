@@ -1,6 +1,6 @@
 [package]
 name = "flexml"
-version = "0.5.3"
+version = "0.6.0"
 edition = "2021"
 description = "Quickly and easily define namespaced XML serialization"
 license = "MIT"
@@ -15,7 +15,7 @@ macro = ["flexml_macro"]
 log = "0.4"
 heck = "0.5"
 
-flexml_macro = { version = "~0.5.3", path = "../flexml_macro", optional = true }
+flexml_macro = { version = "~0.6.0", path = "../flexml_macro", optional = true }
 
 
 [dev-dependencies]

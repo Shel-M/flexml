@@ -32,6 +32,9 @@ use flexml::{IntoXML, XML};
 
 // This is how you tag a default namespace on a node.
 #[namespace("Namespace1")]
+
+// Include an xml declaration string - version and encoding arguments can be excluded.
+#[declaration("1.0", "utf-8")]
 struct Foo {
     // Multiple nodes can be defined. They'll be serialized in the
     // order they appear on the struct.
@@ -86,7 +89,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:foo Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
+        r#"<?xml version="1.0" encoding="UTF-8" ?><n:foo Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:foo>"#,
         test_structure.to_xml().to_string()
     )
 }
@@ -99,6 +102,8 @@ use flexml::XML;
 use flexml::IntoXML;
 use flexml::XMLNamespaces;
 use flexml::XMLAttribute;
+use flexml::XMLDeclaration;
+use flexml::XMLEncoding;
 
 struct Root {
     data1: Vec<Node>,
@@ -129,6 +134,7 @@ impl IntoXML for Root {
         XML::new("root")
             .attribute(XMLAttribute::new("attrib1", &self.attrib1))
             .attribute(XMLAttribute::new("Attrib2", &self.attrib2).namespace("AttributeNs").expect("Failed to set doc namespace")) // Namespaces are supported on attributes
+            .declaration(XMLDeclaration::new((1, 0), XMLEncoding::UTF8))
             .namespace("Namespace1").expect("Failed to set doc namespace")
             .nodes(&data1_nodes)
             .node(
@@ -179,7 +185,7 @@ fn foo() {
     };
 
     assert_eq!(
-        r#"<n:root attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:a="https://attribute.org/namespace" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
+        r#"<?xml version="1.0" encoding="UTF-8" ?><n:root attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:a="https://attribute.org/namespace" xmlns:n="https://namespace1.com/namespace"><Node>First node, first datapoint</Node><n:Node>String mixed with <Node>Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
     )
 }

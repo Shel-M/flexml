@@ -1,4 +1,7 @@
+use log::error;
+
 use crate::attribute::XMLAttribute;
+use crate::declaration::XMLDeclaration;
 use crate::{IntoXML, XMLError, XMLNamespace};
 
 use crate::node::XMLNode;
@@ -10,6 +13,7 @@ pub enum XML {
     Container(Vec<Self>),
     Node(XMLNode),
     Text(String),
+    Declaration(XMLDeclaration, XMLNode),
     None,
 }
 
@@ -55,7 +59,7 @@ impl XML {
     #[inline]
     pub fn set_name<T: Display>(&mut self, name: T) {
         match self {
-            Self::Node(ref mut node) => node.set_name(name),
+            Self::Node(ref mut node) | Self::Declaration(_, ref mut node) => node.set_name(name),
             Self::Container(ref mut nodes) => {
                 for node in nodes.iter_mut() {
                     node.set_name(name.to_string());
@@ -98,7 +102,9 @@ impl XML {
     #[inline]
     pub fn set_namespace(&mut self, namespace: &'static str) -> Result<(), XMLError> {
         match self {
-            Self::Node(ref mut node) => node.set_namespace(namespace)?,
+            Self::Node(ref mut node) | Self::Declaration(_, ref mut node) => {
+                node.set_namespace(namespace)?;
+            }
             Self::Container(ref mut nodes) => {
                 for node in nodes {
                     node.set_namespace(namespace)?;
@@ -132,7 +138,7 @@ impl XML {
     #[inline]
     pub fn add_data<T: IntoXML>(&mut self, data: &[T]) {
         match self {
-            Self::Node(ref mut node) => node.add_data(data),
+            Self::Node(ref mut node) | Self::Declaration(_, ref mut node) => node.add_data(data),
             Self::Container(ref mut nodes) => {
                 let mut data = data.iter().map(IntoXML::to_xml).collect();
                 nodes.append(&mut data);
@@ -155,7 +161,7 @@ impl XML {
     #[inline]
     pub fn add_datum<T: IntoXML>(&mut self, datum: T) {
         match self {
-            Self::Node(ref mut node) => node.add_datum(datum),
+            Self::Node(ref mut node) | Self::Declaration(_, ref mut node) => node.add_datum(datum),
             Self::Container(ref mut nodes) => nodes.push(datum.to_xml()),
             Self::Text(t) => {
                 *self = Self::Container(vec![t.to_xml()]);
@@ -201,12 +207,28 @@ impl XML {
         self.add_datum(text.to_xml());
     }
 
+    #[must_use]
+    pub fn declaration(mut self, declaration: XMLDeclaration) -> Self {
+        self.set_declaration(declaration);
+        self
+    }
+
+    pub fn set_declaration(&mut self, declaration: XMLDeclaration) {
+        match self {
+            Self::Container(_) | Self::Text(_) | Self::None => {
+                error!("Declaration may only be set at the top level XML Node. Ignoring.");
+            }
+            Self::Declaration(xmldeclaration, _xmlnode) => *xmldeclaration = declaration,
+            Self::Node(xmlnode) => *self = Self::Declaration(declaration, xmlnode.clone()),
+        }
+    }
+
     /// # Errors
     /// See [`XMLNode::sub_fmt`]
     pub fn sub_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Text(s) => write!(f, "{s}"),
-            Self::Node(node) => node.sub_fmt(f),
+            Self::Node(node) | Self::Declaration(_, node) => node.sub_fmt(f),
             Self::Container(nodes) => {
                 for node in nodes {
                     node.sub_fmt(f)?;
@@ -222,6 +244,10 @@ impl Display for XML {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Text(s) => write!(f, "{s}"),
+            Self::Declaration(declaration, node) => {
+                declaration.fmt(f)?;
+                node.fmt(f)
+            }
             Self::Node(node) => node.fmt(f),
             Self::Container(nodes) => {
                 for node in nodes {

@@ -25,10 +25,12 @@ impl StructHandler {
 
         let node_tag = xml_attributes.get_node_tag();
         let node_ns_token = &xml_attributes.namespace_token;
+        let node_declaration_token = &xml_attributes.declaration_token;
         quote! {
             flexml::XML::new(#node_tag)
                 #(#attr_tokens)*
                 #node_ns_token
+                #node_declaration_token
                 #(#node_tokens)*
         }
     }

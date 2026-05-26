@@ -46,6 +46,7 @@ impl Parse for NamespaceTuple {
         name,
         namespace,
         namespaces,
+        declaration,
         with,
         unit_repr,
         unserialized,
@@ -87,6 +88,7 @@ struct XMLAttributes {
     name: String,
     namespace_token: Option<TokenStream>,
     namespaces_tokens: Vec<TokenStream>,
+    declaration_token: Option<TokenStream>,
     unit_repr: Option<Lit>,
     untagged: bool,
 }
@@ -135,6 +137,12 @@ impl From<DeriveAttributes> for XMLAttributes {
                 quote! {
                 flexml::XMLNamespaces::insert(#ns, #uri).expect("failed to insert namespace");
             }}).collect(),
+            declaration_token: value.declaration.map(|declaration| {
+                let declaration_tokens = declaration.into_tokens();
+                quote! {
+                    .declaration( #declaration_tokens )
+                }
+            }),
             unit_repr: value.unit_repr,
             untagged: value.untagged
         }

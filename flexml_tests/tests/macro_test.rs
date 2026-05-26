@@ -29,7 +29,7 @@ struct ComplexStructRoot {
 struct Node {
     data1: String,
     #[with(prepend_foo)]
-    data2: Vec<Node>,
+    data2: Vec<Self>,
     #[attribute]
     #[case("UpperCamelCase")]
     #[namespace("AttributeNs")]
@@ -44,12 +44,12 @@ impl Node {
             .data(
                 self.data2
                     .iter()
-                    .map(|d| d.to_xml())
+                    .map(flexml::IntoXML::to_xml)
                     .collect::<Vec<flexml::XML>>()
                     .as_slice(),
             )
             .attribute(
-                XMLAttribute::new(&"Attrib", &self.attrib)
+                XMLAttribute::new("Attrib", &self.attrib)
                     .namespace("AttributeNs")
                     .expect("Unable to add namespace"),
             )
@@ -57,7 +57,7 @@ impl Node {
 }
 
 #[test]
-fn test_complex_struct() {
+fn complex_struct() {
     let test_structure = ComplexStructRoot {
         data1: vec![Node {
             data1: "First node, first datapoint".to_string(),
@@ -84,11 +84,11 @@ fn test_complex_struct() {
     assert_eq!(
         r#"<n:root Attrib1="Attribute_value" n:Attrib2="Attribute_value_2" xmlns:a="https://attribute.com/namespace" xmlns:n="https://namespace1.com/namespace"><node a:Attrib="Attribute 0">First node, first datapoint</node><n:Node a:Attrib="Attribute 1">String mixed with <Node a:Attrib="">foo Second node, sub-datapoint</Node></n:Node></n:root>"#,
         test_structure.to_xml().to_string()
-    )
+    );
 }
 
 #[test]
-fn test_unit_struct() {
+fn unit_struct() {
     #[derive(ToXML)]
     struct Root {
         data: Node,
@@ -103,7 +103,7 @@ fn test_unit_struct() {
 }
 
 #[test]
-fn test_unit_struct_unit_repr() {
+fn unit_struct_unit_repr() {
     #[derive(ToXML)]
     struct Root {
         data: Node,
@@ -122,7 +122,7 @@ fn test_unit_struct_unit_repr() {
 }
 
 #[test]
-fn test_unit_struct_namespace() {
+fn unit_struct_namespace() {
     #[derive(ToXML)]
     struct Root {
         data: Node,
@@ -193,7 +193,7 @@ struct TaggedOptionsNodeB {
 }
 
 #[test]
-fn test_enum_tagged() {
+fn enum_tagged() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::TaggedNode(
         TaggedOptionsNodeA {
             data: "String".to_string(),
@@ -206,7 +206,7 @@ fn test_enum_tagged() {
 }
 
 #[test]
-fn test_enum_primitive() {
+fn enum_primitive() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::Primitive(16)));
     assert_eq!(
         "<Root><Primitive>16</Primitive></Root>",
@@ -215,7 +215,7 @@ fn test_enum_primitive() {
 }
 
 #[test]
-fn test_enum_named_node() {
+fn enum_named_node() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::NamedNode {
         tag: TaggedOptionsNodeA {
             data: "String".to_string(),
@@ -228,7 +228,7 @@ fn test_enum_named_node() {
 }
 
 #[test]
-fn test_enum_named_primitive() {
+fn enum_named_primitive() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::NamedPrimitive {
         tag: 16,
     }));
@@ -239,7 +239,7 @@ fn test_enum_named_primitive() {
 }
 
 #[test]
-fn test_enum_two_named_fields() {
+fn enum_two_named_fields() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::TwoNamed {
         tag_a: TaggedOptionsNodeA {
             data: "String".to_string(),
@@ -253,7 +253,7 @@ fn test_enum_two_named_fields() {
 }
 
 #[test]
-fn test_enum_namespaced_subnode() {
+fn enum_namespaced_subnode() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::OneNamespacedSub(
         TaggedOptionsNodeA {
             data: "String".to_string(),
@@ -264,29 +264,32 @@ fn test_enum_namespaced_subnode() {
     assert_eq!(
         r#"<Root xmlns:o="https://options_namespace.com/namespace"><OneNamespacedSub><o:NodeA>String</o:NodeA><NodeB><Data>64</Data></NodeB></OneNamespacedSub></Root>"#,
         test_struct.to_xml().to_string()
-    )
+    );
 }
 
 #[test]
-fn test_enum_namespaced() {
+fn enum_namespaced() {
     let test_struct = TaggedEnumRoot(NestedEnum::TaggedOptions(TaggedOptions::NamespacedNode(
         TaggedOptionsNodeA {
             data: "String".to_string(),
         },
     )));
 
-    println!("{:?}", flexml::XMLNamespaces::hashmap().unwrap());
+    println!(
+        "{:?}",
+        flexml::XMLNamespaces::hashmap().expect("Could not get hashmap of namespaces")
+    );
     let test_xml = test_struct.to_xml();
     println!("{:?}\n{:#?}", test_xml.namespaces(), test_xml);
 
     assert_eq!(
         r#"<Root xmlns:o="https://options_namespace.com/namespace"><o:NamespacedNode><NodeA>String</NodeA></o:NamespacedNode></Root>"#,
         test_xml.to_string()
-    )
+    );
 }
 
 #[test]
-fn test_enum_unit() {
+fn enum_unit() {
     let test_value = TaggedOptions::BoolUnit;
     assert_eq!("<BoolUnit>true</BoolUnit>", test_value.to_xml().to_string());
 }
@@ -299,14 +302,14 @@ enum UntaggedOptions {
 }
 
 #[test]
-fn test_untagged_enum_primitive() {
+fn untagged_enum_primitive() {
     let test_struct = TaggedEnumRoot(NestedEnum::UntaggedOptions(UntaggedOptions::Primitive(64)));
 
-    assert_eq!("<Root>64</Root>", test_struct.to_xml().to_string())
+    assert_eq!("<Root>64</Root>", test_struct.to_xml().to_string());
 }
 
 #[test]
-fn test_untagged_enum_node() {
+fn untagged_enum_node() {
     let test_struct = TaggedEnumRoot(NestedEnum::UntaggedOptions(UntaggedOptions::Node(
         TaggedOptionsNodeA {
             data: "String".into(),
@@ -316,7 +319,7 @@ fn test_untagged_enum_node() {
     assert_eq!(
         "<Root><NodeA>String</NodeA></Root>",
         test_struct.to_xml().to_string()
-    )
+    );
 }
 
 #[derive(ToXML)]
@@ -340,15 +343,107 @@ impl NamedEnum {
 }
 
 #[test]
-fn test_named_tagged_enum_primitive() {
+fn named_tagged_enum_primitive() {
     let test_value = NamedEnum::Primitive(16);
 
-    assert_eq!("<NamedEnum>16</NamedEnum>", test_value.to_xml().to_string())
+    assert_eq!("<NamedEnum>16</NamedEnum>", test_value.to_xml().to_string());
 }
 
 #[test]
-fn test_named_tagged_enum_with() {
+fn named_tagged_enum_with() {
     let test_value = NamedEnum::WithValue(2);
 
-    assert_eq!("<NamedEnum>01</NamedEnum>", test_value.to_xml().to_string())
+    assert_eq!("<NamedEnum>01</NamedEnum>", test_value.to_xml().to_string());
+}
+
+#[derive(ToXML)]
+#[name("DeclarationStruct")]
+#[declaration]
+struct DeclarationDefaultStruct {
+    value: String,
+}
+
+#[test]
+fn declaration_default() {
+    let _decl = flexml::XMLDeclaration::default();
+
+    let test_value = DeclarationDefaultStruct {
+        value: "value".into(),
+    };
+
+    let xml = test_value.to_xml();
+
+    assert_eq!(
+        "<?xml version=\"1.0\" ?><DeclarationStruct>value</DeclarationStruct>",
+        &*format!("{xml}")
+    );
+}
+
+#[derive(ToXML)]
+#[name("DeclarationStruct")]
+#[declaration("1.1")]
+struct DeclarationVersionStruct {
+    value: String,
+}
+
+#[test]
+fn declaration_version() {
+    let _decl = flexml::XMLDeclaration::default().version((1, 1));
+
+    let test_value = DeclarationVersionStruct {
+        value: "value".into(),
+    };
+
+    let xml = test_value.to_xml();
+
+    assert_eq!(
+        "<?xml version=\"1.1\" ?><DeclarationStruct>value</DeclarationStruct>",
+        &*format!("{xml}")
+    );
+}
+
+#[derive(ToXML)]
+#[name("DeclarationStruct")]
+#[declaration("UTF-8")]
+struct DeclarationEncodingStruct {
+    value: String,
+}
+
+#[test]
+fn declaration_encoding() {
+    let _decl = flexml::XMLDeclaration::default().encoding(flexml::XMLEncoding::UTF8);
+
+    let test_value = DeclarationEncodingStruct {
+        value: "value".into(),
+    };
+
+    let xml = test_value.to_xml();
+
+    assert_eq!(
+        r#"<?xml version="1.0" encoding="UTF-8" ?><DeclarationStruct>value</DeclarationStruct>"#,
+        &*format!("{xml}")
+    );
+}
+
+#[derive(ToXML)]
+#[name("DeclarationStruct")]
+#[declaration("1.1", "utf8")]
+struct DeclarationFullStruct {
+    value: String,
+}
+
+#[test]
+fn declaration_full() {
+    let _decl = flexml::XMLDeclaration::default();
+
+    let test_value = DeclarationFullStruct {
+        value: "value".into(),
+    };
+
+    let xml = test_value.to_xml();
+
+    assert_eq!(
+        r#"<?xml version="1.1" encoding="UTF-8" ?><DeclarationStruct>value</DeclarationStruct>"#,
+        &*format!("{xml}")
+    );
 }

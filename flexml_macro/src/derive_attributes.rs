@@ -1,4 +1,6 @@
-use syn::{punctuated::Punctuated, Attribute, Ident, Lit, LitStr, Token};
+use proc_macro2::TokenStream;
+use quote::{quote, TokenStreamExt};
+use syn::{parse::Parse, punctuated::Punctuated, Attribute, Ident, Lit, LitStr, Token};
 
 use crate::NamespaceTuple;
 
@@ -10,6 +12,7 @@ pub struct DeriveAttributes {
     pub alias: Option<String>,
     pub namespace: Option<String>,
     pub namespaces: Vec<NamespaceTuple>,
+    pub declaration: Option<DeclarationFormats>,
     pub with: Option<Ident>,
     pub unit_repr: Option<Lit>,
     pub unserialized: bool,
@@ -70,6 +73,12 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
 
                         ret.namespaces.extend(namespaces);
                     }
+                    "declaration" => {
+                        ret.declaration = Some(
+                            attr.parse_args::<DeclarationFormats>()
+                                .unwrap_or(DeclarationFormats::Empty),
+                        );
+                    }
                     "with" => {
                         ret.with = Some(
                             attr.parse_args::<Ident>()
@@ -91,5 +100,116 @@ impl From<&Vec<Attribute>> for DeriveAttributes {
         }
 
         ret
+    }
+}
+
+#[derive(Debug)]
+pub enum SupportedEncodingFormats {
+    UTF8,
+}
+
+impl SupportedEncodingFormats {
+    fn into_tokens(self) -> TokenStream {
+        match self {
+            Self::UTF8 => quote! { flexml::XMLEncoding::UTF8 },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum DeclarationFormats {
+    Empty,
+    Xml(u32, u32, SupportedEncodingFormats),
+    XmlVersion(u32, u32),
+    XmlEncoding(SupportedEncodingFormats),
+}
+
+impl DeclarationFormats {
+    pub fn into_tokens(self) -> TokenStream {
+        let mut out = quote! { flexml::XMLDeclaration:: default() };
+
+        match self {
+            Self::Empty => {}
+
+            Self::Xml(major, minor, encoding_formats) => {
+                let encoding = encoding_formats.into_tokens();
+                out = quote! { flexml::XMLDeclaration::new((#major, #minor), #encoding ) };
+            }
+            Self::XmlVersion(major, minor) => out.append_all(quote! { .version((#major, #minor)) }),
+            Self::XmlEncoding(encoding_format) => {
+                let encoding_format = encoding_format.into_tokens();
+                out.append_all(quote! { .encoding(#encoding_format) });
+            }
+        }
+
+        out
+    }
+
+    fn version_string(value: &str) -> Result<(u32, u32), String> {
+        let mut major = None;
+        let mut minor = None;
+        for part in value.split('.') {
+            let Ok(part) = part.parse() else {
+                return Err(format!(
+                    "Unparsable version literal - {part} not an integer"
+                ));
+            };
+            if major.is_none() {
+                major = Some(part);
+                continue;
+            }
+            if minor.is_none() {
+                minor = Some(part);
+                continue;
+            }
+            return Err(
+                "Unparsable version literal - only major and minor version expected".to_string(),
+            );
+        }
+
+        Ok((major.unwrap_or_default(), minor.unwrap_or_default()))
+    }
+
+    fn encoding_string(value: &str) -> Result<SupportedEncodingFormats, &'static str> {
+        match value.to_lowercase().as_str() {
+            "utf8" | "utf-8" => Ok(SupportedEncodingFormats::UTF8),
+            _ => Err("Unknown or unsupported encoding format - only UTF-8 is supported"),
+        }
+    }
+}
+
+impl Parse for DeclarationFormats {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let args = Punctuated::<LitStr, Token![,]>::parse_terminated(input)?;
+
+        match args.len() {
+            0 => Ok(Self::Empty),
+            1 => {
+                let val = args[0].value();
+                if val.contains('.') {
+                    match Self::version_string(&val) {
+                        Ok((major, minor)) => return Ok(Self::XmlVersion(major, minor)),
+                        Err(e) => return Err(input.error(e)),
+                    }
+                }
+
+                match Self::encoding_string(&val) {
+                    Ok(enc) => Ok(Self::XmlEncoding(enc)),
+                    Err(e) => Err(input.error(e)),
+                }
+            }
+            2 => {
+                let (major, minor) = match Self::version_string(&args[0].value()) {
+                    Ok((major, minor)) => (major, minor),
+                    Err(e) => return Err(input.error(e)),
+                };
+
+                match Self::encoding_string(&args[1].value()) {
+                    Ok(enc) => Ok(Self::Xml(major, minor, enc)),
+                    Err(e) => Err(input.error(e)),
+                }
+            }
+            _ => Err(input.error("Expected at most two string literals")),
+        }
     }
 }

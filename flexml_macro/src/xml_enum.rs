@@ -26,10 +26,12 @@ impl EnumHandler {
         let variant_tokens = xml_enum_variants.variant_tokens;
         if xml_attributes.alias.is_some() || xml_attributes.case.is_some() {
             let node_ns_token = &xml_attributes.namespace_token;
+            let node_declaration_token = &xml_attributes.declaration_token;
 
             quote! {
                 flexml::XML::new(#node_tag)
                     #node_ns_token
+                    #node_declaration_token
                     .datum(
                         match self {
                             #(#variant_tokens)*

@@ -26,8 +26,15 @@ impl StructHandler {
         let node_tag = xml_attributes.get_node_tag();
         let node_ns_token = &xml_attributes.namespace_token;
         let node_declaration_token = &xml_attributes.declaration_token;
+
+        let new_tokens = if xml_attributes.untagged {
+            quote! { flexml::XML::new_untagged() }
+        } else {
+            quote! { flexml::XML::new(#node_tag) }
+        };
+
         quote! {
-            flexml::XML::new(#node_tag)
+            #new_tokens
                 #(#attr_tokens)*
                 #node_ns_token
                 #node_declaration_token

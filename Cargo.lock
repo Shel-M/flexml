@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "flexml_macro"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "heck",
  "proc-macro2",

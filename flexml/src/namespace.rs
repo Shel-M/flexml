@@ -16,7 +16,7 @@ fn read_global() -> Result<RwLockReadGuard<'static, NamespaceMap>, XMLError> {
         Ok(v) => Ok(v),
         Err(e) => {
             error!("Could not lock global namespaces!");
-            Err(e.into())
+            Err(e.to_string().into())
         }
     }
 }
@@ -26,7 +26,7 @@ fn write_global() -> Result<RwLockWriteGuard<'static, NamespaceMap>, XMLError> {
         Ok(v) => Ok(v),
         Err(e) => {
             error!("Could not lock global namespaces!");
-            Err(e.into())
+            Err(e.to_string().into())
         }
     }
 }

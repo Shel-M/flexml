@@ -33,6 +33,8 @@ pub enum XMLError {
     Other(String),
 }
 
+impl Error for XMLError {}
+
 impl Display for XMLError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -49,9 +51,9 @@ impl Display for XMLError {
     }
 }
 
-impl<T: Error + Display> From<T> for XMLError {
-    fn from(value: T) -> Self {
-        Self::Other(value.to_string())
+impl From<String> for XMLError {
+    fn from(value: String) -> Self {
+        Self::Other(value)
     }
 }
 

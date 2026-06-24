@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::XML;
 
 pub trait IntoXML {
@@ -12,12 +14,30 @@ impl<T: IntoXML> IntoXML for Option<T> {
 
 impl<T: IntoXML> IntoXML for Vec<T> {
     fn to_xml(&self) -> XML {
-        XML::new_untagged().data(
-            self.iter()
-                .map(IntoXML::to_xml)
-                .collect::<Vec<XML>>()
-                .as_slice(),
-        )
+        let mut xml = XML::new_untagged();
+        for val in self {
+            xml.add_datum(val.to_xml());
+        }
+        xml
+    }
+}
+
+impl<T: IntoXML> IntoXML for &[T] {
+    fn to_xml(&self) -> XML {
+        let mut xml = XML::new_untagged();
+        for val in *self {
+            xml.add_datum(val.to_xml());
+        }
+        xml
+    }
+}
+
+impl<T: IntoXML + Clone> IntoXML for Cow<'_, T> {
+    fn to_xml(&self) -> XML {
+        match self {
+            Cow::Borrowed(b) => b.to_xml(),
+            Cow::Owned(o) => o.to_xml(),
+        }
     }
 }
 

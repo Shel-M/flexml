@@ -32,12 +32,18 @@ impl<T: IntoXML> IntoXML for &[T] {
     }
 }
 
-impl<T: IntoXML + Clone> IntoXML for Cow<'_, T> {
+impl<T: IntoXML + ToOwned> IntoXML for Cow<'_, T> {
     fn to_xml(&self) -> XML {
-        match self {
-            Cow::Borrowed(b) => b.to_xml(),
-            Cow::Owned(o) => o.to_xml(),
-        }
+        self.as_ref().to_xml()
+    }
+}
+
+impl<T: IntoXML + ToOwned> IntoXML for Cow<'_, [T]>
+where
+    [T]: ToOwned,
+{
+    fn to_xml(&self) -> XML {
+        self.as_ref().to_xml()
     }
 }
 
@@ -51,6 +57,12 @@ impl IntoXML for bool {
 }
 
 impl IntoXML for &str {
+    fn to_xml(&self) -> XML {
+        XML::Text(self.to_string())
+    }
+}
+
+impl IntoXML for str {
     fn to_xml(&self) -> XML {
         XML::Text(self.to_string())
     }

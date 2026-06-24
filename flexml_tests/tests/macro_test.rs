@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use flexml::macros::ToXML;
 use flexml::{IntoXML, XMLAttribute, XML};
 
@@ -447,3 +449,31 @@ fn declaration_full() {
         &*format!("{xml}")
     );
 }
+
+#[derive(ToXML)]
+struct CowNode<'a> {
+    #[name("value")]
+    value: Cow<'a, str>,
+    #[name("slice_value")]
+    slice_value: Cow<'a, [u8]>,
+}
+
+#[test]
+fn cow_node() {
+    let value = CowNode {
+        value: "value".into(),
+        slice_value: Cow::Borrowed(&[0, 1, 2]),
+    };
+
+    let xml = value.to_xml();
+
+    assert_eq!("<CowNode><value>value</value><slice_value>0</slice_value><slice_value>1</slice_value><slice_value>2</slice_value></CowNode>", &*format!("{xml}"));
+}
+
+// impl IntoXML for CowNode<'_> {
+//     fn to_xml(&self) -> XML {
+//         XML::new("CowNode")
+//             .datum(self.value.to_xml())
+//             .datum(self.value2.to_xml())
+//     }
+// }

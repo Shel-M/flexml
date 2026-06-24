@@ -57,6 +57,17 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = &input.ident;
+    let mut generic_tokens = Vec::new();
+
+    let generics = &input.generics;
+    for lifetime in generics.lifetimes() {
+        generic_tokens.push(quote! {#lifetime,});
+    }
+
+    if !generic_tokens.is_empty() {
+        generic_tokens.insert(0, quote! {<});
+        generic_tokens.push(quote! {>});
+    }
 
     let xml_attributes = XMLAttributes::process_xml_attributes(&input);
 
@@ -70,7 +81,7 @@ pub fn xml_node_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
         syn::Data::Union(_) => panic!("Not implemented"),
     };
     proc_macro::TokenStream::from(quote! {
-        impl flexml::IntoXML for #name {
+        impl #(#generic_tokens)*  flexml::IntoXML for #name #(#generic_tokens)* {
             fn to_xml(&self) -> flexml::XML {
                 #(#ns_tokens)*
 
